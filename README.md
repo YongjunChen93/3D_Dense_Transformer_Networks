@@ -5,7 +5,7 @@ This is a extended work of our recent work, "Dense Transformer Networks". Please
 ## What is 3D Dense Transformer Networks
 A framework of our 3D DTN.
 
-![image](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN.pdf)
+![pdf](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN.pdf)
 
 
 ### TPS_transformer
@@ -29,5 +29,5 @@ Parameters
 
 ### TPS transformation function demo
 
-![image](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_sample.pdf)
+![pdf](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_sample.pdf)
 
