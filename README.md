@@ -5,8 +5,16 @@ This is a extended work of our recent work, "Dense Transformer Networks". Please
 ## What is 3D Dense Transformer Networks
 A framework of our 3D DTN.
 
-![pdf](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN.pdf)
+![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN.pdf)
 
+### Affine transformation function demo
+![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/Affine_demo.png)
+
+
+
+### TPS transformation function demo
+
+![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_demo.png)
 
 ### TPS_transformer
 
@@ -26,8 +34,3 @@ Parameters
 * U_org: the original feature maps to fill the missing pixels.  
 * T: the transformation shared with TPS_transformer.  
 ```
-
-### TPS transformation function demo
-
-![pdf](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_sample.pdf)
-
