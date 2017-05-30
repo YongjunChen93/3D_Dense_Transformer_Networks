@@ -2,12 +2,11 @@
 
 This is a extended work of our recent work, "Dense Transformer Networks". Please check the [paper](https://arxiv.org/abs/1705.08881) for details.
 
-## Experimental results:
-We perform our experiment on two datasets to compare the baseline U-Net model and the proposed DTN model.
+## What is 3D Dense Transformer Networks
+A framework of our 3D DTN.
 
-## How to use
+![image](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN.pdf)
 
-![image](https://github.com/divelab/dtn/blob/master/results/architecture.PNG)
 
 ### TPS_transformer
 
@@ -27,4 +26,8 @@ Parameters
 * U_org: the original feature maps to fill the missing pixels.  
 * T: the transformation shared with TPS_transformer.  
 ```
+
+### TPS transformation function demo
+
+![image](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_sample.pdf)
 
