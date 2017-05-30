@@ -5,9 +5,6 @@ This is a extended work of our recent work, "Dense Transformer Networks". Please
 In this work we extended the Dense Transformer Networks from 2 dimension to 3 dimension. The third dimension could be either space or time.
 
 ## What is 3D Dense Transformer Networks
-A framework of our 3D DTN.
-
-![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN_framework.png)
 
 ### Affine transformation function demo
 
