@@ -19,7 +19,7 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 In the experiments, I first set the original 3D dataset into a certain size and save as hdf5 format. Then do the data augmentation on the 3D image dataset to enrich the dataset. 
 #### Show 3D data
 To Show the 3D Data, one just need to use show_data() function in `prepare_data.py` file at Data_prepare direction.
-#### Save data into current format
+#### Save data 
 To Save the data into corresponding format, one just need to use save() function in `prepare_data.py` file at Data_prepare direction.
 A example work is on the `pre_data_main.py` file at Data_prepare direction.
 #### Data augmentation
