@@ -14,14 +14,14 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_demo.png)
 
-### Data Prepare
+### Data Preparation
 
-In the experiments, we first set the original 3D dataset into a certain size and save as hdf5 format. Then we do the data augmentation on the 3D image dataset to enrich the dataset. 
+In the experiments, I first set the original 3D dataset into a certain size and save as hdf5 format. Then do the data augmentation on the 3D image dataset to enrich the dataset. 
 #### Show 3D data
-To Show the 3D Data, one just need to use show_data() function in prepare_data file at Data_prepare direction.
+To Show the 3D Data, one just need to use show_data() function in `prepare_data.py` file at Data_prepare direction.
 #### Save data into current format
-To Save the data into corresponding format, one just need to use save() function in prepare_data file at Data_prepare direction.
-A example work is on the pre_data_main file at Data_prepare direction.
+To Save the data into corresponding format, one just need to use save() function in `prepare_data.py` file at Data_prepare direction.
+A example work is on the `pre_data_main.py` file at Data_prepare direction.
 #### Data augmentation
 The augmentation type curently support:
 ```
