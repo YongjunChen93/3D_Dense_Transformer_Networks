@@ -14,6 +14,23 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_demo.png)
 
+### Data Prepare
+
+In the experiments, we first set the original dataset into a certain size and save as hdf5 format. Then we do the data augmentation on the 3D image dataset to enrich the dataset. 
+#### Show 3D data
+To Show the 3D Data, one just need to use show_data() function in Data_prepare file.
+#### Save data into current format
+To Save the data into corresponding format, one just need to use save() function in Data_prepare file.
+A example work is on the pre_data_main file. 
+#### Data augmentation
+The augmentation type curently support:
+```
+* Flip up and down on X, Y, Z axises
+* Flip left and right on X, Y, Z axises
+* rotation 90,180,270 degrees on X, Y axises.
+```
+So for one input data, it will be at most enlargeed into 64 datas.  This part code is in data_augmentation file.
+
 ### TPS_transformer
 
 ```
