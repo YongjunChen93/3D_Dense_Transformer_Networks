@@ -1,3 +1,9 @@
+#python 3.0
+#coding:UTF-8
+'''
+@author Yongjun Chen 06/01/2017
+'''
+#for date augmentation
 import pdb
 import numpy as np
 import numpy.linalg as nl

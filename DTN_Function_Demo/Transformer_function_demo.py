@@ -1,5 +1,9 @@
-# python3.0
-# Implement 3D version of Dense Transformer Layer
+#python 3.0
+#coding:UTF-8
+'''
+@author Yongjun Chen 06/01/2017
+'''
+# Implement 3d version of Dense Transformer Layer
 
 import numpy as np
 import tensorflow as tf

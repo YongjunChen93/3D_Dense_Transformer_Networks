@@ -1,3 +1,10 @@
+#python 3.0
+#coding:UTF-8
+'''
+@author Yongjun Chen 06/01/2017
+
+'''
+#for showing images
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
