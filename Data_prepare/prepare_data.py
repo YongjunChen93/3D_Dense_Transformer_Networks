@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
 from pylab import *
-
+import os
 
 def show_data(data,label):
 	[d1,d2,d3,d4] = data.shape
@@ -30,23 +30,46 @@ def show_data(data,label):
 			plt.close()
 
 def save(data,label,dataFileresult):
+	print("test",type(data))
 	[d1,d2,d3,d4] = data.shape
 	result = h5py.File(dataFileresult,'w')
-	result.create_dataset('Data', (d1,d2,d3,d4), dtype='float32')
-	result.create_dataset('Label', (d1,d2,d3,d4), dtype='uint8')
-	result['data'] = data
-	result['label'] = label
+	result.create_dataset('data', data = data)
+	result.create_dataset('label', data = label)
 	result.close()
 
 def read_data(dataFile,size,Transpose=False,resize=False):
-	f            =      h5py.File(dataFile,'r')
+	f             =      h5py.File(dataFile,'r')
+	result_data   =      np.zeros(size)
+	result_label  =      np.zeros(size)
 	if Transpose == True:
-		data     =      np.transpose(np.array(f['data']),(3,2,1,0))
-		label    =      np.transpose(np.array(f['label']),(3,2,1,0))
+		data      =      np.transpose(np.array(f['data']),(3,2,1,0))
+		label     =      np.transpose(np.array(f['label']),(3,2,1,0))
 	else:
-		data     =      np.array(f['data'])
-		label    =      np.array(f['label'])
+		data      =      np.array(f['data'])
+		label     =      np.array(f['label'])
+	[d1,d2,d3,d4] =      data.shape
 	if resize == True:
-		data     =      np.resize(data,size)
-		label    =      np.resize(label,size)
+		for p in range(d1):
+			for d in range(d2):
+				result_data[p,d,:,:]     =      np.resize(data[p,d,:,:],(size[2],size[3]))
+				result_label[p,d,:,:]    =      np.resize(label[p,d,:,:],(size[2],size[3]))
+		data      =      result_data
+		label     =      result_label
 	return data, label
+
+def check_name(dataFile):
+	f             =      h5py.File(dataFile,'r')
+	for name in f:
+		print("keys of f",name)
+
+def make_data_loc_file(location,write_loc):
+	filelist = os.listdir(location)
+	with open(write_loc,"w") as f:
+		for i in range(len(filelist)):
+			f.write(location+'/'+filelist[i]+'\n')
+	f.close()
+
+if __name__ == '__main__':
+	size = (1,2,3,4)
+	print(size[1])
+	make_data_loc_file('../augment_data/LONI_train','../augment_data/LONI_train/train.txt')

@@ -12,14 +12,13 @@ from pylab import *
 from prepare_data import *
 
 def main():
-	dataFile =      'LONI_test.h5'
-	dataFileresult = 'LONI_test.h5'
+	dataFile =      'LONI_valid.h5'
+	dataFileresult = 'LONI_v.h5'
 	print("dataFile1",dataFile)
-	size = (10,181,150,150)
+	size = (10,181,142,149)
+	check_name(dataFile)
 	data,label = read_data(dataFile,size,Transpose=False,resize=False)
-	print(type(data[1,1,1,1]))
-	print(data.shape)
-	#save(data,label,dataFileresult)
+	save(data,label,dataFileresult)
 	show_data(data,label)
 
 if __name__ == '__main__':

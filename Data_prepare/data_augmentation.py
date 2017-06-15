@@ -13,13 +13,10 @@ from pylab import *
 import tensorflow as tf
 
 
-def augmentation(data,label,flip_up_down,flip_left_right,rot90,loc):
+def augmentation(data,label,flip_up_down,flip_left_right,rot90,dir_loc,loc):
 	[d1,d2,d3,d4]          =          data.shape
-	dir_loc                =          'augment_data/'
 	filename               =          dir_loc + loc + 'LON_'+str(flip_up_down)+str(flip_left_right)+str(rot90)+'.h5'
 	aug_file               =          h5py.File(filename,'w')
-	aug_file.create_dataset('Data', (d1,d2,d3,d4), dtype='uint8')
-	aug_file.create_dataset('Label', (d1,d2,d3,d4), dtype='uint8')
 
 	for batch_index in range(d1):
 		for index in range(d2):
@@ -55,37 +52,37 @@ def augmentation(data,label,flip_up_down,flip_left_right,rot90,loc):
 			if rot90 == 3:
 				data[batch_index][index]    =     np.rot90(np.rot90(np.rot90(data[batch_index][index])))
 				label[batch_index][index]   =     np.rot90(np.rot90(np.rot90(label[batch_index][index])))						
-	aug_file['data']       =          data
-	aug_file['label']      =          label
+	aug_file.create_dataset('data', data = data)
+	aug_file.create_dataset('label', data = label)
 	aug_file.close()
 
-def do_augmentation(file,loc):
-	data     =      np.array(f['data'])
-	label    =      np.array(f['label'])
+def do_augmentation(file,dir_loc,loc):
+	data     =      np.array(file['data'])
+	label    =      np.array(file['label'])
 	[d1,d2,d3,d4]     =     data.shape
 	for flipud in range(4):
 		for fliplr in range(4):
-			for rotn in range(4):
+			for rotn in range(1):
 				print("flipud",flipud,"fliplr",fliplr,"rotn",rotn)
-				augmentation(data,label,flipud,fliplr,rotn,loc)
+				augmentation(data,label,flipud,fliplr,rotn,dir_loc,loc)
 
-def main():
-	print("start all")				
-	dataFile = './h5data/LONI_cut_margin_all.h5'
-	f        =      h5py.File(dataFile)
-	do_augmentation(f,'LONI_All/')
+def main():	
+	dir_loc      =       '../augment_data/'
+	train_loc    =		 'LONI_train/'
+	valid_loc    =     	 'LONI_valid/'
+	test_loc     =       'LONI_test/'
+	train_save_loc = 'LONI_train.h5'
+	valid_save_loc = 'LONI_valid.h5'
+	test_save_loc  = 'LONI_test.h5'
 	print("start train")
-	dataFile = './h5data/LONI_cut_margin_train.h5'
-	f        =      h5py.File(dataFile)
-	do_augmentation(f,'LONI_train/')
+	f        =      h5py.File(train_save_loc)
+	do_augmentation(f,dir_loc,train_loc)
 	print("start valid")
-	dataFile = './h5data/LONI_cut_margin_valid.h5'
-	f        =      h5py.File(dataFile)
-	do_augmentation(f,'LONI_valid/')
+	f        =      h5py.File(valid_save_loc)
+	do_augmentation(f,dir_loc,valid_loc)
 	print("start test")
-	dataFile = './h5data/LONI_cut_margin_test.h5'
-	f        =      h5py.File(dataFile)
-	do_augmentation(f,'LONI_test/')
+	f        =      h5py.File(test_save_loc)
+	do_augmentation(f,dir_loc,test_loc)
 
 if __name__ == '__main__':
 	main()
