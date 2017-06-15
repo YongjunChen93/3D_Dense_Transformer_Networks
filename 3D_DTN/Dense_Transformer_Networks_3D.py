@@ -1,36 +1,38 @@
 import tensorflow as tf
 import numpy as np
-from tf_utils import weight_variable, bias_variable, dense_to_one_hot
 from ops import *
 sess = tf.Session()
-class transformer(object):
-    def __init__(self,U,U_local,X_controlP_number,Y_controlP_number,Z_controlP_number,out_size):
+class DSN_Transformer_3D(object):
+    def __init__(self,input_shape,control_points_ratio):
         self.initial = np.array([[-5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5.],[-5., -5., -5., -5., -0.4, -0.4, -0.4, -0.4, 0.4, 0.4, 0.4, 0.4, 5., 5., 5.,5.]])
-        self.local_num_batch = U_local.shape[0].value
-        self.local_depth = U_local.shape[1].value
-        self.local_height = U_local.shape[2].value
-        self.local_width = U_local.shape[3].value
-        self.local_num_channels = U_local.shape[4].value
-
-        self.num_batch = U.shape[0].value
-        self.depth = U.shape[1].value
-        self.height = U.shape[2].value
-        self.width = U.shape[3].value
-        self.num_channels = U.shape[4].value
+        self.num_batch = input_shape[0]
+        self.depth = input_shape[1]
+        self.height = input_shape[2]
+        self.width = input_shape[3]
+        self.num_channels = input_shape[4]
         
         self.out_height = self.height
         self.out_width = self.width
         self.out_depth = self.depth
-        self.out_size = out_size
-        self.X_controlP_number = X_controlP_number
-        self.Y_controlP_number = Y_controlP_number
-        self.Z_controlP_number = Z_controlP_number
+        self.X_controlP_number = int(input_shape[3] / \
+                                (control_points_ratio))
+        self.Y_controlP_number = int(input_shape[2] / \
+                                (control_points_ratio))
+        self.Z_controlP_number = int(input_shape[1] / \
+                                (control_points_ratio))
 
+    def _repeat(self,x, n_repeats, type):
+        with tf.variable_scope('_repeat'):
+            rep = tf.transpose(
+                tf.expand_dims(tf.ones(shape=tf.stack([n_repeats, ])), 1), [1, 0])
+            rep = tf.cast(rep, type)
+            x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
+            return tf.reshape(x, [-1])
 
     def _local_Networks(self,input_dim,x):
         with tf.variable_scope('_local_Networks'):
-            x = tf.reshape(x,[-1,self.local_height*self.local_width*self.local_depth*self.local_num_channels])
-            W_fc_loc1 = weight_variable([self.local_height*self.local_width*self.local_depth*self.local_num_channels, 20])
+            x = tf.reshape(x,[-1,self.height*self.width*self.depth*self.num_channels])
+            W_fc_loc1 = weight_variable([self.height*self.width*self.depth*self.num_channels, 20])
             b_fc_loc1 = bias_variable([20])
             W_fc_loc2 = weight_variable([20, 32])
             initial = self.initial.astype('float32')
@@ -39,12 +41,12 @@ class transformer(object):
             h_fc_loc1 = tf.nn.tanh(tf.matmul(x, W_fc_loc1) + b_fc_loc1)
             h_fc_loc2 = tf.nn.tanh(tf.matmul(h_fc_loc1, W_fc_loc2) + b_fc_loc2)
             #temp use
-            x = [-1,-0.3,0.3,1]
-            y = [-1,-0.3,0.3,1]
-            z = [-1,-0.3,0.3,1]
-            x_s = tf.tile(x,[self.Y_controlP_number*self.Z_controlP_number])
-            y_s = tf.tile(self._repeat(y,self.X_controlP_number,'float32'),[self.Z_controlP_number])
-            z_s = self._repeat(z,self.X_controlP_number*self.Y_controlP_number,'float32')
+            x = np.linspace(-1.0,1.0,self.X_controlP_number)
+            y = np.linspace(-1.0,1.0,self.Y_controlP_number)
+            z = np.linspace(-1.0,1.0,self.Z_controlP_number)
+            x_s = tf.tile(x,[self.Y_controlP_number*self.Z_controlP_number],'float64')
+            y_s = tf.tile(self._repeat(y,self.X_controlP_number,'float64'),[self.Z_controlP_number])
+            z_s = self._repeat(z,self.X_controlP_number*self.Y_controlP_number,'float64')
             h_fc_loc2 = tf.concat([x_s,y_s,z_s],0)
             h_fc_loc2 = tf.tile(h_fc_loc2,[self.num_batch])
             h_fc_loc2 = tf.reshape(h_fc_loc2,[self.num_batch,-1])
@@ -61,22 +63,14 @@ class transformer(object):
             x   = tf.tile(x,[self.Y_controlP_number*self.Z_controlP_number])
             y   = tf.tile(self._repeat(y,self.X_controlP_number,'float32'),[self.Z_controlP_number])
             z   = self._repeat(z,self.X_controlP_number*self.Y_controlP_number,'float32')
-
             xs,ys,zs = tf.transpose(tf.reshape(x,(-1,1))),tf.transpose(tf.reshape(y,(-1,1))),tf.transpose(tf.reshape(z,(-1,1)))
             cp_s = tf.concat([xs,ys,zs],0)
             cp_s_trans = tf.transpose(cp_s)
-            #print("cp_s_trans",sess.run(cp_s_trans))
             # (4*4*4)*3 -> 64 * 3
             ##===Compute distance R
             xs_trans,ys_trans,zs_trans = tf.transpose(tf.stack([xs],axis=2),perm=[1,0,2]),tf.transpose(tf.stack([ys],axis=2),perm=[1,0,2]),tf.transpose(tf.stack([zs],axis=2),perm=[1,0,2])        
-            #print("xs_trans",sess.run(xs_trans))
-            #print("ys_trans",sess.run(ys_trans))
-            #print("zs_trans",sess.run(zs_trans))
             xs, xs_trans = tf.meshgrid(xs,xs_trans);ys, ys_trans = tf.meshgrid(ys,ys_trans);zs, zs_trans = tf.meshgrid(zs,zs_trans)
             Rx,Ry, Rz = tf.square(tf.subtract(xs,xs_trans)),tf.square(tf.subtract(ys,ys_trans)),tf.square(tf.subtract(zs,zs_trans))
-            #print("Rx",sess.run(Rx))
-            #print("Ry",sess.run(Ry))
-            #print("Rz",sess.run(Rz))
             R = tf.add_n([Rx,Ry,Rz])
             #print("R",sess.run(R))
             R = tf.multiply(R,tf.log(tf.clip_by_value(R,1e-10,1e+10)))
@@ -103,14 +97,6 @@ class transformer(object):
             T = tf.transpose(tf.matmul(Deltas_inv_f,cp),[0,2,1])
             #print("T",sess.run(T))
             return T
-
-    def _repeat(self,x, n_repeats,type_input):
-        with tf.variable_scope('_repeat'):
-            rep = tf.transpose(
-                tf.expand_dims(tf.ones(shape=tf.stack([n_repeats, ])), 1), [1, 0])
-            rep = tf.cast(rep, type_input)
-            x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
-            return tf.reshape(x, [-1])
 
     def _interpolate(self,im, x, y, z):
         with tf.variable_scope('_interpolate'):
@@ -192,6 +178,92 @@ class transformer(object):
             output = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id,we*Ie, wf*If, wg*Ig, wh*Ih])
             return output
 
+    def _bilinear_interpolate(self,im, im_org, x, y,z):
+        with tf.variable_scope('_interpolate'):
+            # constants
+            x = tf.cast(x, 'float32')
+            y = tf.cast(y, 'float32')
+            z = tf.cast(z, 'float32')
+            height_f = tf.cast(self.height, 'float32')
+            width_f = tf.cast(self.width, 'float32')
+            depth_f = tf.cast(self.depth, 'float32')
+            zero = tf.zeros([], dtype='int32')
+            max_z = tf.cast(tf.shape(im)[1] - 1, 'int32')
+            max_y = tf.cast(tf.shape(im)[2] - 1, 'int32')
+            max_x = tf.cast(tf.shape(im)[3] - 1, 'int32')
+            # scale indices from [-1, 1] to [0, width/height]
+            # scale indices from [-1, 1] to [0, width/height]
+            x = (x + 1.0)*(width_f) / 2.0
+            y = (y + 1.0)*(height_f) / 2.0
+            z = (z + 1.0)*(depth_f) / 2.0
+            # do sampling
+            x0 = tf.cast(tf.floor(x), 'int32')
+            x1 = x0 + 1
+            y0 = tf.cast(tf.floor(y), 'int32')
+            y1 = y0 + 1
+            z0 = tf.cast(tf.floor(z), 'int32')
+            z1 = z0 + 1
+            x0 = tf.clip_by_value(x0, zero, max_x)
+            x1 = tf.clip_by_value(x1, zero, max_x)
+            y0 = tf.clip_by_value(y0, zero, max_y)
+            y1 = tf.clip_by_value(y1, zero, max_y)
+            z0 = tf.clip_by_value(z0, zero, max_z)
+            z1 = tf.clip_by_value(z1, zero, max_z)
+            dim2 = self.width
+            dim1 = self.width*self.height
+            dim0 = self.width*self.height*self.depth
+            base = self._repeat(tf.range(self.num_batch)*dim0, self.out_height*self.out_width*self.out_depth,'int32')
+            base_z0 = base + z0*dim1
+            base_z1 = base + z1*dim1
+            base_y0 = y0*dim2
+            base_y1 = y1*dim2
+            #lower layer
+            idx_a = tf.expand_dims(base_z0 + base_y0 + x0,1)
+            idx_b = tf.expand_dims(base_z0 + base_y1 + x0,1)
+            idx_c = tf.expand_dims(base_z0 + base_y0 + x1,1)
+            idx_d = tf.expand_dims(base_z0 + base_y1 + x1,1)
+            #upper layer
+            idx_e = tf.expand_dims(base_z1 + base_y0 + x0,1)
+            idx_f = tf.expand_dims(base_z1 + base_y1 + x0,1)
+            idx_g = tf.expand_dims(base_z1 + base_y0 + x1,1)
+            idx_h = tf.expand_dims(base_z1 + base_y1 + x1,1)
+            # use indices to lookup pixels in the flat image and restore
+            # channels dim
+            im_flat = tf.reshape(im, tf.stack([-1, self.num_channels]))
+            im_flat = tf.cast(im_flat, 'float32')
+            Ia = tf.scatter_nd(idx_a, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Ib = tf.scatter_nd(idx_b, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Ic = tf.scatter_nd(idx_c, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Id = tf.scatter_nd(idx_d, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Ie = tf.scatter_nd(idx_e, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            If = tf.scatter_nd(idx_f, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Ig = tf.scatter_nd(idx_g, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])
+            Ih = tf.scatter_nd(idx_h, im_flat, [self.num_batch*self.out_height*self.out_width*self.out_depth, self.num_channels])           
+
+            x0_f = tf.cast(x0, 'float32')
+            x1_f = tf.cast(x1, 'float32')
+            y0_f = tf.cast(y0, 'float32')
+            y1_f = tf.cast(y1, 'float32')
+            z0_f = tf.cast(z0, 'float32')
+            z1_f = tf.cast(z1, 'float32')
+
+            wa = tf.scatter_nd(idx_a, tf.expand_dims(((x1_f-x) * (y1_f-y) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wb = tf.scatter_nd(idx_b, tf.expand_dims(((x1_f-x) * (y-y0_f) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wc = tf.scatter_nd(idx_c, tf.expand_dims(((x-x0_f) * (y1_f-y) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wd = tf.scatter_nd(idx_d, tf.expand_dims(((x-x0_f) * (y-y0_f) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            we = tf.scatter_nd(idx_e, tf.expand_dims(((x1_f-x) * (y1_f-y) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wf = tf.scatter_nd(idx_f, tf.expand_dims(((x1_f-x) * (y-y0_f) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wg = tf.scatter_nd(idx_g, tf.expand_dims(((x-x0_f) * (y1_f-y) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wh = tf.scatter_nd(idx_h, tf.expand_dims(((x-x0_f) * (y-y0_f) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+
+            value_all = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id, we*Ie, wf*If, wg*Ig, wh*Ih])
+            weight_all = tf.clip_by_value(tf.add_n([wa, wb, wc, wd,we, wf, wg, wh]),1e-5,1e+10)
+            flag = tf.less_equal(weight_all, 1e-5* tf.ones_like(weight_all))
+            flag = tf.cast(flag, tf.float32)
+            im_org = tf.reshape(im_org, [-1,self.num_channels])
+            output = tf.add(tf.div(value_all, weight_all), tf.multiply(im_org, flag))
+            return output
+
     def _meshgrid(self):
         with tf.variable_scope('_meshgrid'):
             x_use = tf.linspace(-1.0, 1.0, self.out_height)
@@ -222,10 +294,9 @@ class transformer(object):
             grid = tf.concat([ones, x_t_flat, y_t_flat,z_t_flat,R],0)
             return grid
 
-    def _transform(self, T, input_dim):
+    def _transform(self, T, U,U_org,Trans):
         with tf.variable_scope('_transform'): 
             T = tf.reshape(T, (-1, 3, self.X_controlP_number*self.Y_controlP_number*self.Z_controlP_number+4))
-            #print("T",T)
             T = tf.cast(T, 'float32')
             # grid of (x_t, y_t, 1), eq (1) in ref [1]
             #output size is the same as input size
@@ -234,7 +305,6 @@ class transformer(object):
             grid = tf.reshape(grid, [-1])
             grid = tf.tile(grid, tf.stack([self.num_batch]))
             grid = tf.reshape(grid, tf.stack([self.num_batch, self.X_controlP_number*self.Y_controlP_number*self.Z_controlP_number+4, -1]))
-            #print("grid",sess.run(grid))
             # Transform A x (x_t, y_t,z_t, 1)^T -> (x_s, y_s, z_s)
             T_g = tf.matmul(T, grid)
             x_s = tf.slice(T_g, [0, 0, 0], [-1, 1, -1])
@@ -243,17 +313,32 @@ class transformer(object):
             x_s_flat = tf.reshape(x_s, [-1])
             y_s_flat = tf.reshape(y_s, [-1])
             z_s_flat = tf.reshape(z_s, [-1])
-            input_transformed = self._interpolate(
-                input_dim, x_s_flat, y_s_flat,z_s_flat)
+            if Trans == 'Encoder':
+                output_transformed = self._interpolate(
+                    U, x_s_flat, y_s_flat,z_s_flat)
+            elif Trans == 'Decoder':
+                output_transformed = self._bilinear_interpolate(U, U_org, x_s_flat, y_s_flat, z_s_flat)
+            else:
+                print("error type")
+                return
             output = tf.reshape(
-                input_transformed, tf.stack([self.num_batch, self.out_depth,self.out_height, self.out_width,self.num_channels]))
+                output_transformed, tf.stack([self.num_batch, self.out_depth,self.out_height, self.out_width,self.num_channels]))
             return output
 
-    def TPS_transformer(self, U, U_local,name='SpatialTransformer', **kwargs):
+    def Encoder(self, U, U_local,name='SpatialTransformer', **kwargs):
         with tf.variable_scope(name):
             cp = self._local_Networks(U,U_local)
-            #print("cp ",sess.run(cp))
-#            print("cp",cp)
-            T= self._makeT(cp)
-            output = self._transform(T, U)
-            return output,T,cp
+            self.T= self._makeT(cp)
+            output = self._transform(self.T, U, U, Trans = 'Encoder')
+            return output
+
+    def Decoder(self,U, U_org,name='SpatialDecoderLayer', **kwargs):
+        with tf.variable_scope(name):
+            output = self._transform(self.T, U, U_org, Trans = 'Decoder')
+            return output
+
+
+
+
+
+
