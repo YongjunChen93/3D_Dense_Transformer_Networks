@@ -7,7 +7,6 @@ from ops import *
 sess = tf.Session()
 class DSN_Transformer_3D(object):
     def __init__(self,input_shape,control_points_ratio):
-        self.initial = np.array([[-5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5., -5., -0.4, 0.4, 5.],[-5., -5., -5., -5., -0.4, -0.4, -0.4, -0.4, 0.4, 0.4, 0.4, 0.4, 5., 5., 5.,5.]])
         self.num_batch = input_shape[0]
         self.depth = input_shape[1]
         self.height = input_shape[2]
@@ -23,7 +22,14 @@ class DSN_Transformer_3D(object):
                                 (control_points_ratio))
         self.Z_controlP_number = int(input_shape[1] / \
                                 (control_points_ratio))
-
+        init_x = np.linspace(-5,5,self.X_controlP_number)
+        init_y = np.linspace(-5,5,self.Y_controlP_number)
+        init_z = np.linspace(-5,5,self.Z_controlP_number)
+        x_s = np.tile(init_x, [self.Y_controlP_number*self.Z_controlP_number])
+        y_s = np.tile(np.repeat(init_y,self.X_controlP_number),[self.Z_controlP_number])
+        z_s = np.repeat(init_z,self.X_controlP_number*self.Y_controlP_number)        
+        self.initial = np.array([x_s,y_s,z_s])
+        
     def _repeat(self,x, n_repeats, type):
         with tf.variable_scope('_repeat'):
             rep = tf.transpose(
