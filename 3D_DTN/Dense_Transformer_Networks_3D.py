@@ -1,3 +1,6 @@
+# python3.0
+# @ author Yongjun Chen
+# Dense Transformer Networks Class
 import tensorflow as tf
 import numpy as np
 from ops import *
