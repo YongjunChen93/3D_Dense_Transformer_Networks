@@ -51,24 +51,17 @@ Parameters
 ```
 ### Simple Running Example
 ```
-	# inputs
-	U=tf.linspace(1.0,10.0,500)
-	U =tf.reshape(U,[2,5,5,5,2])
-	#encoder initial
-	X_controlP_number = 4
-	Y_controlP_number = 4
-	Z_controlP_number = 4
-	tps_out_size = (40,40,40)
-	#decoder initial
-	X_controlP_number_D = 4
-	Y_controlP_number_D = 4
-	Z_controlP_number_D = 4
-	out_size_D = (40, 40,40)
-	# encoder
-	transform = transformer(U,U,X_controlP_number,Y_controlP_number,Z_controlP_number,tps_out_size)
-	conv1,T,cp= transform.TPS_transformer(U,U)
-	#decoder
-	inverse_trans = inverse_transformer(conv1,X_controlP_number_D,Y_controlP_number_D,Z_controlP_number_D,out_size_D)
-	conv2 = inverse_trans.TPS_decoder(conv1,conv1,T)
+    # inputs
+    U=tf.linspace(1.0,10.0,2*8*8*8*2)
+    U =tf.reshape(U,[2,8,8,8,2])
+    #network initial
+    dtn_input_shape = [2,8,8,8,2]
+    control_points_ratio = 2
+    # initial DTN class
+    transform = DSN_Transformer_3D(dtn_input_shape,control_points_ratio)
+    # encoder
+    conv1= transform.Encoder(U,U)
+    #decoder
+    conv2 = transform.Decoder(conv1,conv1)
 
 ```
