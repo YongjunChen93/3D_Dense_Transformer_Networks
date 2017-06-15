@@ -34,6 +34,11 @@ So for one input data, it will be at most enlargeed into 64 datas.  This part co
 ### Dense Transformer Networks Simple Running Example
 
 ```
+    from Dense_Transformer_Networks_3D import *
+    import numpy as np
+    import tensorflow as tf
+    import h5py
+
     # sample inputs (Shape: NDHWC)
     U=tf.linspace(1.0,10.0,2*8*8*8*2)
     U =tf.reshape(U,[2,8,8,8,2])
