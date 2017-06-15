@@ -1,1 +1,1 @@
-/Users/Juhn/Desktop/U_Net_32_start/dataset/LON_000.h5
+/Users/Juhn/Desktop/U_Net_32_start/dataset/LONI_train/LON_000.h5
