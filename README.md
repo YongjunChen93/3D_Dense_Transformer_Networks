@@ -31,7 +31,7 @@ The augmentation type curently support:
 ```
 So for one input data, it will be at most enlargeed into 64 datas.  This part code is in data_augmentation file at Data_prepare direction.
 
-### Simple Running Example
+### Dense Transformer Networks Simple Running Example
 
 ```
     # inputs
