@@ -31,23 +31,6 @@ The augmentation type curently support:
 ```
 So for one input data, it will be at most enlargeed into 64 datas.  This part code is in data_augmentation file at Data_prepare direction.
 
-### TPS_transformer
-
-```
-Parameters  
-
-* U: the input of spatial transformer.  
-* U_local: the input of localization networks.  
-```
-
-### TPS_decoder
-
-```
-Parameters  
-
-* U: the input of spatial deocder transformer.  
-* U_org: the original feature maps to fill the missing pixels.  
-* T: the transformation shared with TPS_transformer.  
 ```
 ### Simple Running Example
 ```
