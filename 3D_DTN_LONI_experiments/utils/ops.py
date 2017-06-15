@@ -75,11 +75,11 @@ def pool(inputs, kernel_size, scope, data_type='2D'):
 
 
 def weight_variable(shape):
-    initial = tf.zeros(shape)
+    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     return tf.Variable(initial)
 
 def bias_variable(shape):
-    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
+    initial = tf.zeros(shape)
     return tf.Variable(initial)
 
 
