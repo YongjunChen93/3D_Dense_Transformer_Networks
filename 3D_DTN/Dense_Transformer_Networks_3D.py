@@ -1,5 +1,7 @@
 # python3.0
-# @ author Yongjun Chen
+'''
+@ author Yongjun Chen
+'''
 # Implement 3D version of Dense Transformer Layer
 import tensorflow as tf
 import numpy as np
@@ -12,7 +14,6 @@ class DSN_Transformer_3D(object):
         self.height = input_shape[2]
         self.width = input_shape[3]
         self.num_channels = input_shape[4]
-        
         self.out_height = self.height
         self.out_width = self.width
         self.out_depth = self.depth
@@ -29,7 +30,7 @@ class DSN_Transformer_3D(object):
         y_s = np.tile(np.repeat(init_y,self.X_controlP_number),[self.Z_controlP_number])
         z_s = np.repeat(init_z,self.X_controlP_number*self.Y_controlP_number)        
         self.initial = np.array([x_s,y_s,z_s])
-        
+
     def _repeat(self,x, n_repeats, type):
         with tf.variable_scope('_repeat'):
             rep = tf.transpose(
@@ -43,7 +44,7 @@ class DSN_Transformer_3D(object):
             x = tf.reshape(x,[-1,self.height*self.width*self.depth*self.num_channels])
             W_fc_loc1 = weight_variable([self.height*self.width*self.depth*self.num_channels, 20])
             b_fc_loc1 = bias_variable([20])
-            W_fc_loc2 = weight_variable([20, 32])
+            W_fc_loc2 = weight_variable([20, self.X_controlP_number*self.Y_controlP_number*self.Z_controlP_number*3])
             initial = self.initial.astype('float32')
             initial = initial.flatten()
             b_fc_loc2 = tf.Variable(initial_value=initial, name='b_fc_loc2')

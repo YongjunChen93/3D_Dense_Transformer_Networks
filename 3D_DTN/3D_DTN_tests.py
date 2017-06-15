@@ -1,6 +1,9 @@
 # python3.0
-# @ author Yongjun Chen
+'''
+@ author Yongjun Chen
+'''
 # Implement 3D version of Dense Transformer Layer
+
 from Dense_Transformer_Networks_3D import *
 import numpy as np
 import tensorflow as tf
