@@ -34,17 +34,17 @@ So for one input data, it will be at most enlargeed into 64 datas.  This part co
 ### Dense Transformer Networks Simple Running Example
 
 ```
-    # inputs
+    # sample inputs (Shape: NDHWC)
     U=tf.linspace(1.0,10.0,2*8*8*8*2)
     U =tf.reshape(U,[2,8,8,8,2])
-    #network initial
+    # parameters setup in network initial
     dtn_input_shape = [2,8,8,8,2]
     control_points_ratio = 2
-    # initial DTN class
+    # parameters setup initial DTN class
     transform = DSN_Transformer_3D(dtn_input_shape,control_points_ratio)
-    # encoder
+    # encoder layer
     conv1= transform.Encoder(U,U)
-    #decoder
+    # decoder layer
     conv2 = transform.Decoder(conv1,conv1)
 
 ```
