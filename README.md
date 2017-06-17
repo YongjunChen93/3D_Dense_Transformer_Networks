@@ -6,19 +6,21 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 
 ## What is 3D Dense Transformer Networks
 
+### Coorinates transformation
+
 The following two images illustrate how the coordinates in Dense Transformer Networks translate with different transformation functions(Affine and TPS).
 
-### Affine transformation function demo
+1. Affine transformation function demo
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/Affine_demo.png)
 
-### TPS transformation function demo
+2. TPS transformation function demo
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_demo.png)
 
-The following image shows how to interprete the image value after the coordinates been translated. 
+### Interpolation 
 
-### 3D Dense Transformer Networks 
+The following image shows how to interpolate the input value to the output after the coordinates been translated. In our work, we use the interpolate policy based on bilinear interpolation.
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/3D_DTN_framework.png)
 
