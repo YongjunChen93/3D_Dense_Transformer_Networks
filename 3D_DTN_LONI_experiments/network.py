@@ -9,6 +9,8 @@ from Dense_Transformer_Networks_3D import *
 import h5py
 """
 This module build a standard U-NET for semantic segmentation.
+If want Dense Transformer Network, please read the code here:
+https://github.com/JohnYC1995/3D_Dense_Transformer_Networks
 If want VAE using pixelDCL, please visit this code:
 https://github.com/HongyangGao/UVAE
 """
@@ -100,23 +102,22 @@ class DenseTransformerNetwork(object):
         self.loss_op = tf.reduce_mean(losses, name='loss/loss_op')
         self.decoded_predictions = tf.argmax(
             self.predictions, self.channel_axis, name='accuracy/decode_pred')
+        self.dice_accuracy_op, self.sub_dice_list = ops.dice_accuracy(self.decoded_predictions,\
+                                self.annotations,self.conf.class_num)
         correct_prediction = tf.equal(
             self.annotations, self.decoded_predictions,
             name='accuracy/correct_pred')
         self.accuracy_op = tf.reduce_mean(
             tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
             name='accuracy/accuracy_op')
-        weights = tf.cast(
-            tf.greater(self.decoded_predictions, 0, name='m_iou/greater'),
-            tf.int32, name='m_iou/weights')
-        self.m_iou, self.miou_op = tf.metrics.mean_iou(
-            self.annotations, self.decoded_predictions, self.conf.class_num,
-            weights, name='m_iou/m_ious')
 
     def config_summary(self, name):
         summarys = []
         summarys.append(tf.summary.scalar(name+'/loss', self.loss_op))
+        summarys.append(tf.summary.scalar(name+'/dice_accuracy', self.dice_accuracy_op))
         summarys.append(tf.summary.scalar(name+'/accuracy', self.accuracy_op))
+        for i in range(1,self.conf.class_num-2):
+            summarys.append(tf.summary.scalar(name+'/class'+str(i)+'dice_accuracy', self.sub_dice_list[i-1]))        
         if name == 'valid' and self.conf.data_type=='2D':
             summarys.append(
                 tf.summary.image(name+'/input', self.inputs, max_outputs=100))
@@ -223,10 +224,12 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = valid_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, summary = self.sess.run(
-                    [self.loss_op, self.valid_summary], feed_dict=feed_dict)
+                loss, summary, accuracy, dice_accuracy = self.sess.run(
+                    [self.loss_op, self.valid_summary,self.accuracy_op,self.dice_accuracy_op], feed_dict=feed_dict)
                 self.save_summary(summary, epoch_num+self.conf.reload_step)
-                print('----testing loss', loss)
+                print('----valid loss', loss)
+                print('----valid accuracy', accuracy)
+                print('----valid dice accuracy', dice_accuracy)
             elif epoch_num % self.conf.summary_interval == 0:
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
@@ -239,9 +242,13 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, _ = self.sess.run(
-                    [self.loss_op, self.train_op], feed_dict=feed_dict)
-                print('----training loss', loss)
+                loss, summary, _, accuracy, dice_accuracy= self.sess.run(
+                    [self.loss_op, self.train_summary, self.train_op, self.accuracy_op, \
+                    self.dice_accuracy_op], feed_dict=feed_dict)
+                print('----train loss', loss)
+                print('----train accuracy', accuracy)
+                print('----train dice accuracy', dice_accuracy)
+                self.save_summary(summary, epoch_num+self.conf.reload_step)
             if epoch_num % self.conf.save_interval == 0:
                 self.save(epoch_num+self.conf.reload_step)
 
@@ -282,9 +289,9 @@ class DenseTransformerNetwork(object):
             self.reload(self.conf.test_step)
         else:
             print("please set a reasonable test_step")
-            return	
+            return  
         test_reader = H53DDataLoader(
-            self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)			
+            self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)           
         predict_generator = test_reader.generate_data(self.conf.index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
         predictions = []
         losses = []
@@ -393,6 +400,7 @@ class DenseTransformerNetwork(object):
         self.saver.save(self.sess, checkpoint_path, global_step=step)
 
     def reload(self, step):
+        print("reload:",self.conf.reload_step)
         checkpoint_path = os.path.join(
             self.conf.modeldir, self.conf.model_name)
         model_path = checkpoint_path+'-'+str(step)
@@ -400,3 +408,7 @@ class DenseTransformerNetwork(object):
             print('------- no such checkpoint', model_path)
             return
         self.saver.restore(self.sess, model_path)
+
+if __name__ == '__main__':
+    a = [1,3,4]
+
