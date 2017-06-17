@@ -6,7 +6,7 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 
 ## What is 3D Dense Transformer Networks
 
-### Coorinates transformation
+### Coordinates transformation
 
 The following two images illustrate how the coordinates in Dense Transformer Networks translate with different transformation functions(Affine and TPS).
 
