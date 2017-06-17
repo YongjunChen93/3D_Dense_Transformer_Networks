@@ -82,7 +82,7 @@ def bias_variable(shape):
     initial = tf.zeros(shape)
     return tf.Variable(initial)
     
-def dice_accuracy(self, decoded_predictions, annotations, class_nums):
+def dice_accuracy(decoded_predictions, annotations, class_nums):
     DiceRatio = tf.constant(0,tf.float32)
     misclassnum = tf.constant(0,tf.float32)
     class_num   = tf.constant(class_nums,tf.float32) 
