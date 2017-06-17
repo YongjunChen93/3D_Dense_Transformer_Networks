@@ -21,8 +21,6 @@ def configure():
     flags.DEFINE_string('data_dir', 'dataset/', 'Name of data directory')
     flags.DEFINE_string('train_data', 'train.txt', 'Training data')
     flags.DEFINE_string('valid_data', 'valid.txt', 'Validation data')
-    #flags.DEFINE_string('train_data', 'training3d.h5', 'Training data')
-    #flags.DEFINE_string('valid_data', 'validation3d.h5', 'Validation data')
     flags.DEFINE_string('test_data', 'testing3d.h5', 'Testing data')
     flags.DEFINE_string('data_type', '3D', '2D data or 3D data')
     flags.DEFINE_integer('batch', 1, 'batch size')

@@ -85,17 +85,19 @@ keep_prob: dropout probability
 
 data_dir: data directory
 
-train_data: h5 file for training
+train_data: training data location which writen in txt file
 
-valid_data: h5 file for validation
+valid_data: validation data location which writen in txt file
 
 test_data: h5 file for testing
 
 batch: batch size
 
-channel: input image channel number
+channel: input data channel number
 
-height, width: height and width of input image
+depth, height, width: depth, height and width of input data
+
+d_gap, w_gap, h_gap: training patch size of depth, height and width.
 
 #### Debug
 
