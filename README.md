@@ -14,26 +14,11 @@ In this work we extended the Dense Transformer Networks from 2 dimension to 3 di
 
 ![images](https://github.com/JohnYC1995/3D_Dense_Transformer_Networks/blob/master/images/TPS_demo.png)
 
-### Data Preparation
 
-In the experiments, I first set the original 3D dataset into a certain size and save as hdf5 format. Then do the data augmentation on the 3D image dataset to enrich the dataset. 
-#### Show 3D data
-To Show the 3D Data, one just need to use show_data() function in `prepare_data.py` file at Data_prepare direction.
-#### Save data 
-To Save the data into corresponding format, one just need to use save() function in `prepare_data.py` file at Data_prepare direction.
-A example work is on the `pre_data_main.py` file at Data_prepare direction.
-#### Data augmentation
-The augmentation type curently support:
-```
-* Flip up and down on X, Y, Z axises
-* Flip left and right on X, Y, Z axises
-* rotation 90,180,270 degrees on X, Y axises.
-```
-So for one input data, it will be at most enlargeed into 64 datas.  This part code is in data_augmentation file at Data_prepare direction.
+## Add 3D Dense Transformer Networks to your Neural Networks
 
-### Add 3D Dense Transformer Networks to your Neural Networks
+If you want to add the 3D Dense Transformer Networks to your own Networks. You just need to download the codes in ```3D_DTN_Code``` folder. The ```3D_DTN_tests.py``` file will give a very clearly example to add the DTN to your Networks.
 
-If you want add the 3D Dense Transformer Networks to your own Networks. You just need to download the codes in ```3D_DTN_Code``` folder. The ```3D_DTN_tests.py``` file will give a very clearly example to add the DTN to your Networks.
 Here is the example how to add it:
 
 ```
@@ -59,13 +44,47 @@ Here is the example how to add it:
     conv2 = transform.Decoder(conv1,conv1)
 
 ```
-### Add 3D Dense Transformer Networks to a standard U-NET for semantic segmentation
+## Add 3D Dense Transformer Networks to a standard U-NET for semantic segmentation
 
 If you just want to use DTN based on U-NET for 3D semantic segmentation, you just need to download the whole codes in ```3D_DTN_LONI_experiments``` folder. And then change the model's setup based on your task on ``` main.py``` 
 
-Here is the instruction of how to set up this Framework:
+Here is the instruction of how to set up the standard U-NET with Dense Transformer Networks:
 
-## Configure the network
+### System requirement
+
+#### Programming language
+
+Python 3.5+
+
+#### Python Packages
+
+tensorflow (CPU) or tensorflow-gpu (GPU), numpy, h5py, os.
+
+### Data Preparation
+
+In our experiments,  I first set the original 3D dataset into a certain size and save as hdf5 format. Then do the data augmentation on the 3D image dataset to enrich the dataset. 
+
+#### Show 3D data
+
+To Show the 3D Data, one just need to use show_data() function in `prepare_data.py` file at Data_prepare direction.
+
+#### Save data 
+
+To Save the data into corresponding format, one just need to use save() function in `prepare_data.py` file at Data_prepare direction.
+
+A example work is on the `pre_data_main.py` file at Data_prepare direction.
+
+#### Data augmentation
+
+The augmentation type curently support:
+```
+* Flip up and down on X, Y, Z axises
+* Flip left and right on X, Y, Z axises
+* rotation 90,180,270 degrees on X, Y axises.
+```
+So for one input data, it will be at most enlargeed into 64 datas.  This part code is in data_augmentation file at Data_prepare direction.
+
+### Configure the network
 
 All network hyperparameters are configured in main.py.
 
@@ -136,7 +155,7 @@ dtn_location: The Dense Transformer Networks location.
 
 control_points_ratio: the ratio of control_points comparing with the Dense transformer networks input size.
 
-## Training and Testing
+### Training and Testing
 
 #### Start training
 
