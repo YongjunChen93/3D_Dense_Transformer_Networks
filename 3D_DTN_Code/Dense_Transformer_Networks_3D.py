@@ -259,14 +259,26 @@ class DSN_Transformer_3D(object):
             z0_f = tf.cast(z0, 'float32')
             z1_f = tf.cast(z1, 'float32')
 
-            wa = tf.scatter_nd(idx_a, tf.expand_dims(((x1_f-x) * (y1_f-y) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wb = tf.scatter_nd(idx_b, tf.expand_dims(((x1_f-x) * (y-y0_f) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wc = tf.scatter_nd(idx_c, tf.expand_dims(((x-x0_f) * (y1_f-y) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wd = tf.scatter_nd(idx_d, tf.expand_dims(((x-x0_f) * (y-y0_f) * (z1_f-z)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            we = tf.scatter_nd(idx_e, tf.expand_dims(((x1_f-x) * (y1_f-y) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wf = tf.scatter_nd(idx_f, tf.expand_dims(((x1_f-x) * (y-y0_f) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wg = tf.scatter_nd(idx_g, tf.expand_dims(((x-x0_f) * (y1_f-y) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
-            wh = tf.scatter_nd(idx_h, tf.expand_dims(((x-x0_f) * (y-y0_f) * (z-z0_f)), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            dx1 = tf.abs(x1_f-x)
+            dx1 = tf.cast(tf.less_equal(dx1,1),tf.float32)*dx1
+            dy1 = tf.abs(y1_f-y)
+            dy1 = tf.cast(tf.less_equal(dy1,1),tf.float32)*dy1
+            dz1 = tf.abs(z1_f-z)
+            dz1 = tf.cast(tf.less_equal(dz1,1),tf.float32)*dz1
+            dx0 = tf.abs(x-x0_f)
+            dx0 = tf.cast(tf.less_equal(dx0,1),tf.float32)*dx0
+            dy0 = tf.abs(y-y0_f)
+            dy0 = tf.cast(tf.less_equal(dy0,1),tf.float32)*dy0
+            dz0 = tf.abs(z-z0_f)
+            dz0 = tf.cast(tf.less_equal(dz0,1),tf.float32)*dz0
+            wa = tf.scatter_nd(idx_a, tf.expand_dims((dx1 * dy1 * dz1), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wb = tf.scatter_nd(idx_b, tf.expand_dims((dx1 * dy0 * dz1), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wc = tf.scatter_nd(idx_c, tf.expand_dims((dx0 * dy1 * dz1), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wd = tf.scatter_nd(idx_d, tf.expand_dims((dx0 * dy0 * dz1), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            we = tf.scatter_nd(idx_e, tf.expand_dims((dx1 * dy1 * dz0), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wf = tf.scatter_nd(idx_f, tf.expand_dims((dx1 * dy0 * dz0), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wg = tf.scatter_nd(idx_g, tf.expand_dims((dx0 * dy1 * dz0), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
+            wh = tf.scatter_nd(idx_h, tf.expand_dims((dx0 * dy0 * dz0), 1), [self.num_batch*self.out_height*self.out_width*self.out_depth, 1])
 
             value_all = tf.add_n([wa*Ia, wb*Ib, wc*Ic, wd*Id, we*Ie, wf*If, wg*Ig, wh*Ih])
             weight_all = tf.clip_by_value(tf.add_n([wa, wb, wc, wd,we, wf, wg, wh]),1e-5,1e+10)
@@ -348,9 +360,3 @@ class DSN_Transformer_3D(object):
         with tf.variable_scope(name):
             output = self._transform(self.T, U, U_org, Trans = 'Decoder')
             return output
-
-
-
-
-
-
