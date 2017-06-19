@@ -9,9 +9,6 @@ from Dense_Transformer_Networks_3D import *
 import h5py
 """
 This module build a standard U-NET for semantic segmentation.
-If want Dense Transformer Network, please read the code here:
-https://github.com/JohnYC1995/3D_Dense_Transformer_Networks
-
 If want VAE using pixelDCL, please visit this code:
 https://github.com/HongyangGao/UVAE
 """
@@ -103,22 +100,23 @@ class DenseTransformerNetwork(object):
         self.loss_op = tf.reduce_mean(losses, name='loss/loss_op')
         self.decoded_predictions = tf.argmax(
             self.predictions, self.channel_axis, name='accuracy/decode_pred')
-        self.dice_accuracy_op, self.sub_dice_list = ops.dice_accuracy(self.decoded_predictions,\
-                                self.annotations,self.conf.class_num)
         correct_prediction = tf.equal(
             self.annotations, self.decoded_predictions,
             name='accuracy/correct_pred')
         self.accuracy_op = tf.reduce_mean(
             tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
             name='accuracy/accuracy_op')
+        weights = tf.cast(
+            tf.greater(self.decoded_predictions, 0, name='m_iou/greater'),
+            tf.int32, name='m_iou/weights')
+        self.m_iou, self.miou_op = tf.metrics.mean_iou(
+            self.annotations, self.decoded_predictions, self.conf.class_num,
+            weights, name='m_iou/m_ious')
 
     def config_summary(self, name):
         summarys = []
         summarys.append(tf.summary.scalar(name+'/loss', self.loss_op))
-        summarys.append(tf.summary.scalar(name+'/dice_accuracy', self.dice_accuracy_op))
         summarys.append(tf.summary.scalar(name+'/accuracy', self.accuracy_op))
-        for i in range(1,self.conf.class_num-2):
-            summarys.append(tf.summary.scalar(name+'/class'+str(i)+'dice_accuracy', self.sub_dice_list[i-1]))        
         if name == 'valid' and self.conf.data_type=='2D':
             summarys.append(
                 tf.summary.image(name+'/input', self.inputs, max_outputs=100))
@@ -225,12 +223,10 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = valid_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, summary, accuracy, dice_accuracy = self.sess.run(
-                    [self.loss_op, self.valid_summary,self.accuracy_op,self.dice_accuracy_op], feed_dict=feed_dict)
+                loss, summary = self.sess.run(
+                    [self.loss_op, self.valid_summary], feed_dict=feed_dict)
                 self.save_summary(summary, epoch_num+self.conf.reload_step)
-                print('----valid loss', loss)
-                print('----valid accuracy', accuracy)
-                print('----valid dice accuracy', dice_accuracy)
+                print('----testing loss', loss)
             elif epoch_num % self.conf.summary_interval == 0:
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
@@ -243,13 +239,9 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, summary, _, accuracy, dice_accuracy= self.sess.run(
-                    [self.loss_op, self.train_summary, self.train_op, self.accuracy_op, \
-                    self.dice_accuracy_op], feed_dict=feed_dict)
-                print('----train loss', loss)
-                print('----train accuracy', accuracy)
-                print('----train dice accuracy', dice_accuracy)
-                self.save_summary(summary, epoch_num+self.conf.reload_step)
+                loss, _ = self.sess.run(
+                    [self.loss_op, self.train_op], feed_dict=feed_dict)
+                print('----training loss', loss)
             if epoch_num % self.conf.save_interval == 0:
                 self.save(epoch_num+self.conf.reload_step)
 
@@ -266,7 +258,6 @@ class DenseTransformerNetwork(object):
         count = 0
         losses = []
         accuracies = []
-        m_ious = []
         while True:
             inputs, annotations = test_reader.next_batch(self.conf.batch)
             if inputs.shape[0] < self.conf.batch:
@@ -279,10 +270,81 @@ class DenseTransformerNetwork(object):
             count += 1
             losses.append(loss)
             accuracies.append(accuracy)
-            m_ious.append(m_iou)
         print('Loss: ', np.mean(losses))
         print('Accuracy: ', np.mean(accuracies))
-        print('M_iou: ', m_ious[-1])
+
+    def predict_func(self,predict_generator):
+        s_predictions = []
+        s_labels = []
+        for s_start in range(0,self.conf.predict_batch-self.conf.d_gap+1,self.conf.d_gap):
+            s_start = min(s_start, self.conf.predict_batch - self.conf.depth)
+            h_predictions = []
+            h_labels = []
+            for h_start in range(0,self.conf.data_height-self.conf.h_gap+1,self.conf.h_gap):
+                h_start = min(h_start, self.conf.data_height - self.conf.height)
+                w_predictions = []
+                w_labels = []
+                for w_start in range(0,self.conf.data_width-self.conf.w_gap+1,self.conf.w_gap):
+                    w_start = min(w_start,self.conf.data_width-self.conf.width)
+                    inputs, annotations = next(predict_generator) 
+                    feed_dict = {self.inputs: inputs, self.annotations: annotations}
+                    prediction, loss, accuracy = self.sess.run(
+                        [self.predictions, self.loss_op, self.accuracy_op],
+                        feed_dict=feed_dict)
+                    prediction = tf.unstack(prediction, axis=3)
+                    if w_start == 0:
+                        w_predictions = w_predictions + prediction
+                        w_labels = annotations
+                    else:
+                        w_overlap = len(w_predictions) - w_start
+                        for i in range(w_overlap):
+                            w_predictions[i-w_overlap] = w_predictions[i-w_overlap]*(1-i*1.0/w_overlap)\
+                                + prediction[i]*(i*1.0/w_overlap)
+                        w_predictions = w_predictions+prediction[w_overlap:]
+                        w_labels = tf.concat([w_labels,annotations[:,:,:,w_overlap:]], axis=3)
+                w_predictions = tf.stack(w_predictions, axis=3)
+                w_predictions = tf.unstack(w_predictions, axis=2)
+                if h_start == 0:
+                    h_predictions = h_predictions + w_predictions
+                    h_labels = w_labels
+                else:
+                    h_overlap = len(h_predictions) - h_start
+                    for i in range(h_overlap):
+                        h_predictions[i-h_overlap] = h_predictions[i-h_overlap]*(1-i*1.0/h_overlap)\
+                            + w_predictions[i]*(i*1.0/h_overlap)
+                    h_predictions = h_predictions+w_predictions[h_overlap:]
+                    h_labels = tf.concat([h_labels,w_labels[:,:,h_overlap:,:]], axis=2)
+            h_predictions = tf.stack(h_predictions,axis = 2)
+            h_predictions = tf.unstack(h_predictions,axis = 1)
+            if s_start == 0:
+                s_predictions = s_predictions + h_predictions
+                s_labels = h_labels
+            else:
+                s_overlap = len(s_predictions) - s_start
+                for i in range(s_overlap):
+                    s_predictions[i-s_overlap] = s_predictions[i-s_overlap]*(1-i*1.0/s_overlap)\
+                        + h_predictions[i]*(i*1.0/s_overlap)
+                s_predictions = s_predictions+h_predictions[s_overlap:]
+                s_labels = tf.concat([s_labels,h_labels[:,s_overlap:,:,:]],axis = 1)
+        # process label and data 
+        s_predictions = tf.stack(s_predictions, axis=1)
+        s_labels = tf.cast(s_labels,'uint8')
+        # process data
+        decoded_predictions = tf.argmax(
+            s_predictions, self.channel_axis, name='accuracy/decode_pred')
+        correct_prediction = tf.equal(
+            one_hot_annotations, decoded_predictions,
+            name='accuracy/predict_correct_pred')
+        # process label
+        expand_annotations = tf.expand_dims(
+            s_labels, -1, name='s_labels/expand_dims')
+        one_hot_annotations = tf.squeeze(
+            expand_annotations, axis=[self.channel_axis],
+            name='s_labels/squeeze')
+        one_hot_annotations = tf.one_hot(
+            one_hot_annotations, depth=self.conf.class_num,
+            axis=self.channel_axis, name='s_labels/one_hot') 
+        return  s_predictions, one_hot_annotations    
 
     def predict(self):
         print('---->predicting ', self.conf.test_step)
@@ -290,110 +352,31 @@ class DenseTransformerNetwork(object):
             self.reload(self.conf.test_step)
         else:
             print("please set a reasonable test_step")
-            return  
+            return	
         test_reader = H53DDataLoader(
-            self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)           
+            self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)			
         predict_generator = test_reader.generate_data(self.conf.index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
-        predictions = []
-        losses = []
-        accuracies = []
-        aucs = []
-        precisions = []
-        recalls = []
-        predictions = []
-        labels = []
-        s_predictions = []
-        s_labels = []
-        for i in range(1,2):
-            for s_start in range(0,self.conf.predict_batch-self.conf.d_gap+1,self.conf.d_gap):
-                s_start = min(s_start, self.conf.predict_batch - self.conf.depth)
-                print("S_start =======+++++++ ",s_start)
-                h_predictions = []
-                h_labels = []
-                for h_start in range(0,self.conf.data_height-self.conf.h_gap+1,self.conf.h_gap):
-                    h_start = min(h_start, self.conf.data_height - self.conf.height)
-                    print('=======h_start =======+++++++',h_start)
-                    w_predictions = []
-                    w_labels = []
-                    for w_start in range(0,self.conf.data_width-self.conf.w_gap+1,self.conf.w_gap):
-                        w_start = min(w_start,self.conf.data_width-self.conf.width)
-                        print('====================w_start =======+++++++ ',w_start)
-                        inputs, annotations = next(predict_generator) 
-                        feed_dict = {self.inputs: inputs, self.annotations: annotations}
-                        prediction, loss, accuracy = self.sess.run(
-                            [self.predictions, self.loss_op, self.accuracy_op],
-                            feed_dict=feed_dict)
-                        prediction = tf.unstack(prediction, axis=3)
-                        if w_start == 0:
-                            w_predictions = w_predictions + prediction
-                            w_labels = annotations
-                        else:
-                            w_overlap = len(w_predictions) - w_start
-                            for i in range(w_overlap):
-                                w_predictions[i-w_overlap] = w_predictions[i-w_overlap]*(1-i*1.0/w_overlap)\
-                                    + prediction[i]*(i*1.0/w_overlap)
-                            w_predictions = w_predictions+prediction[w_overlap:]
-                            w_labels = tf.concat([w_labels,annotations[:,:,:,w_overlap:]], axis=3)
+        correct_prediction,one_hot_annotations = predict_func(predict_generator)
+        #accuracy
+        accuracy_op = tf.reduce_mean(
+            tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
+            name='accuracy/accuracy_op')
+        print("======== prediction accuracy_op ========", self.sess.run(accuracy_op))
+        #loss
+        loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(one_hot_annotations, s_predictions))
+        print("=============== prediction loss ============",self.sess.run(loss))
+        # save data
+        sess = tf.Session()
+        with sess.as_default():
+            predict_result = s_predictions.eval()[0,:,:,:,:]
+            ground_truth   = one_hot_annotations.eval()[0,:,:,:,:]
+        print("start save ----->")
+        result = h5py.File('./samples/prediction_result'+str(self.conf.index)+'.h5','w')
+        result.create_dataset('prediction',data = predict_result)
+        result.create_dataset('label',data = ground_truth)
+        result.close()
+        print("finish save ------>")
 
-                    w_predictions = tf.stack(w_predictions, axis=3)
-                    w_predictions = tf.unstack(w_predictions, axis=2)
-                    if h_start == 0:
-                        h_predictions = h_predictions + w_predictions
-                        h_labels = w_labels
-                    else:
-                        h_overlap = len(h_predictions) - h_start
-                        for i in range(h_overlap):
-                            h_predictions[i-h_overlap] = h_predictions[i-h_overlap]*(1-i*1.0/h_overlap)\
-                                + w_predictions[i]*(i*1.0/h_overlap)
-                        h_predictions = h_predictions+w_predictions[h_overlap:]
-                        h_labels = tf.concat([h_labels,w_labels[:,:,h_overlap:,:]], axis=2)
-
-                print("===================== start s =====================")
-                print("h_labels",h_labels.get_shape())
-                h_predictions = tf.stack(h_predictions,axis = 2)
-                print("h_predictions shape",h_predictions.get_shape())
-                h_predictions = tf.unstack(h_predictions,axis = 1)
-
-                if s_start == 0:
-                    print("start 0")
-                    s_predictions = s_predictions + h_predictions
-                    s_labels = h_labels
-                    print("s_labels shape",s_labels.get_shape())
-                else:
-                    s_overlap = len(s_predictions) - s_start
-                    for i in range(s_overlap):
-                        s_predictions[i-s_overlap] = s_predictions[i-s_overlap]*(1-i*1.0/s_overlap)\
-                            + h_predictions[i]*(i*1.0/s_overlap)
-                    s_predictions = s_predictions+h_predictions[s_overlap:]
-                    s_labels = tf.concat([s_labels,h_labels[:,s_overlap:,:,:]],axis = 1)
-            print("=====finish concatation=======")
-            s_predictions = tf.stack(s_predictions, axis=1)
-            print("s_predictions",s_predictions.get_shape())
-            print("s_labels",s_labels.get_shape())
-            s_labels = tf.cast(s_labels,'uint8')
-            expand_annotations = tf.expand_dims(
-                s_labels, -1, name='s_labels/expand_dims')
-            one_hot_annotations = tf.squeeze(
-                expand_annotations, axis=[self.channel_axis],
-                name='s_labels/squeeze')
-            one_hot_annotations = tf.one_hot(
-                one_hot_annotations, depth=self.conf.class_num,
-                axis=self.channel_axis, name='s_labels/one_hot')
-            print("s_labels",one_hot_annotations)
-            loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(one_hot_annotations, s_predictions))
-            print("===============prediction loss ============",self.sess.run(loss))
-            sess = tf.Session()
-            with sess.as_default():
-                predict_result = s_predictions.eval()[0,:,:,:,:]
-                ground_truth   = one_hot_annotations.eval()[0,:,:,:,:]
-            print("start save ----->")
-            print("predict result data type-------->",predict_result.dtype)
-            print(predict_result.shape)
-            result = h5py.File('./samples/prediction_result.h5','w')
-            result.create_dataset('prediction',data = predict_result)
-            result.create_dataset('label',data = ground_truth)
-            result.close()
-            print("finish save ------>")
     def save(self, step):
         print('---->saving', step)
         checkpoint_path = os.path.join(
@@ -401,7 +384,6 @@ class DenseTransformerNetwork(object):
         self.saver.save(self.sess, checkpoint_path, global_step=step)
 
     def reload(self, step):
-        print("reload:",self.conf.reload_step)
         checkpoint_path = os.path.join(
             self.conf.modeldir, self.conf.model_name)
         model_path = checkpoint_path+'-'+str(step)
@@ -409,7 +391,3 @@ class DenseTransformerNetwork(object):
             print('------- no such checkpoint', model_path)
             return
         self.saver.restore(self.sess, model_path)
-
-if __name__ == '__main__':
-    a = [1,3,4]
-
