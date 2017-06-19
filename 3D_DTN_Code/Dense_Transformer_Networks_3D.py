@@ -7,7 +7,8 @@ import tensorflow as tf
 import numpy as np
 from ops import *
 sess = tf.Session()
-Debug = False
+Debug = True
+
 class DSN_Transformer_3D(object):
     def __init__(self,input_shape,control_points_ratio):
         self.num_batch = input_shape[0]
