@@ -359,7 +359,7 @@ class DenseTransformerNetwork(object):
         test_reader = H53DDataLoader(
             self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)			
         predict_generator = test_reader.generate_data(self.conf.index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
-        correct_prediction,one_hot_annotations = predict_func(predict_generator)
+        correct_prediction,one_hot_annotations = self.predict_func(predict_generator)
         #accuracy
         accuracy_op = tf.reduce_mean(
             tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
