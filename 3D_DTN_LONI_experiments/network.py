@@ -9,6 +9,9 @@ from Dense_Transformer_Networks_3D import *
 import h5py
 """
 This module build a standard U-NET for semantic segmentation.
+If want use Dense Transformer Networks, please visit this code:
+https://github.com/JohnYC1995/3D_Dense_Transformer_Networks
+
 If want VAE using pixelDCL, please visit this code:
 https://github.com/HongyangGao/UVAE
 """
