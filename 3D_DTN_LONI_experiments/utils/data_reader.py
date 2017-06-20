@@ -107,14 +107,14 @@ class H53DDataLoader(object):
 #            labels = np.transpose(labels, (0, 3, 1, 2))
             return images, labels
 
-    def generate_data(self,index,batch_size,patch_shape,gap=None):
+    def generate_data(self,index,sub_batch_index,batch_size,patch_shape,gap=None):
         self.index = index
         data_path = self.dataset_name[self.index]
         data_file = h5py.File(data_path, 'r')
-        self.data_all, self.label_all = np.transpose(np.array(data_file['data']),(2,0,1)),  np.transpose(np.array(data_file['label']),(2,0,1))
+        print("data_path----->",data_path)
+        self.data_all, self.label_all = data_file['data'][self.sub_batch_index,:,:,:], data_file['label'][self.sub_batch_index,:,:,:]
         self.batch_size =batch_size
         self.patch_shape = patch_shape
-
         image_batches = []
         label_batches = []
         s_patch = self.batch_size[0] 
@@ -137,23 +137,20 @@ class H53DDataLoader(object):
             d_gap = gap[0]
             w_gap = gap[1]
             h_gap = gap[2]
-
-        for i in range(1,2):
-            for s_start in range(0,s_input-d_gap+1,d_gap):
-                s_start =min(s_start,s_input-s_patch)
-                s_end = s_start+s_patch
-                for h_start in range(0,h_input-h_gap+1,h_gap):
-                    h_start = min(h_start,h_input-h_patch)
-                    h_end = h_start+h_patch
-                    for w_start in range(0,w_input-w_gap+1,w_gap):
-                        #print("w_start",w_start)
-                        w_start = min(w_start,w_input-w_patch)
-                        w_end = w_start+w_patch
-                        X = self.data_all[s_start:s_end,h_start:h_end,w_start:w_end]
-                        Y = self.label_all[s_start:s_end,h_start:h_end,w_start:w_end]
-                        images = np.expand_dims(np.expand_dims(np.stack(X, axis=0), axis=-1),axis=0)
-                        labels = np.expand_dims(np.stack(Y, axis=0),axis=0)
-                        yield images,labels
+        for s_start in range(0,s_input-s_input%d_gap+1,d_gap):
+            s_start =min(s_start,s_input-s_patch)
+            s_end = s_start+s_patch
+            for h_start in range(0,h_input-h_input%h_gap+1,h_gap):
+                h_start = min(h_start,h_input-h_patch)
+                h_end = h_start+h_patch
+                for w_start in range(0,w_input-w_input%w_gap+1,w_gap):
+                    w_start = min(w_start,w_input-w_patch)
+                    w_end = w_start + w_patch
+                    X = self.data_all[s_start:s_end,h_start:h_end,w_start:w_end]
+                    Y = self.label_all[s_start:s_end,h_start:h_end,w_start:w_end]
+                    images = np.expand_dims(np.expand_dims(np.stack(X, axis=0), axis=-1),axis=0)
+                    labels = np.expand_dims(np.stack(Y, axis=0),axis=0)
+                    yield images,labels
 
 
 class QueueDataReader(object):

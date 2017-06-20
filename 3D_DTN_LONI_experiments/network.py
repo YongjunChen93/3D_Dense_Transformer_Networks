@@ -109,12 +109,6 @@ class DenseTransformerNetwork(object):
         self.accuracy_op = tf.reduce_mean(
             tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
             name='accuracy/accuracy_op')
-        weights = tf.cast(
-            tf.greater(self.decoded_predictions, 0, name='m_iou/greater'),
-            tf.int32, name='m_iou/weights')
-        self.m_iou, self.miou_op = tf.metrics.mean_iou(
-            self.annotations, self.decoded_predictions, self.conf.class_num,
-            weights, name='m_iou/m_ious')
 
     def config_summary(self, name):
         summarys = []
@@ -279,17 +273,20 @@ class DenseTransformerNetwork(object):
     def predict_func(self,predict_generator):
         s_predictions = []
         s_labels = []
-        for s_start in range(0,self.conf.predict_batch-self.conf.d_gap+1,self.conf.d_gap):
+        print("start Depth------>")
+        for s_start in range(0,self.conf.predict_batch-self.conf.predict_batch%self.conf.d_gap+1,self.conf.d_gap):
             s_start = min(s_start, self.conf.predict_batch - self.conf.depth)
             h_predictions = []
             h_labels = []
-            for h_start in range(0,self.conf.data_height-self.conf.h_gap+1,self.conf.h_gap):
+            print("start Height------------>")
+            for h_start in range(0,self.conf.data_height-self.conf.data_height%self.conf.w_gap+1,self.conf.h_gap):
                 h_start = min(h_start, self.conf.data_height - self.conf.height)
                 w_predictions = []
                 w_labels = []
-                for w_start in range(0,self.conf.data_width-self.conf.w_gap+1,self.conf.w_gap):
+                print("start Width------------------>")
+                for w_start in range(0,self.conf.data_width-self.conf.data_width%self.conf.h_gap+1,self.conf.w_gap):
                     w_start = min(w_start,self.conf.data_width-self.conf.width)
-                    inputs, annotations = next(predict_generator) 
+                    inputs, annotations = next(predict_generator)
                     feed_dict = {self.inputs: inputs, self.annotations: annotations}
                     prediction, loss, accuracy = self.sess.run(
                         [self.predictions, self.loss_op, self.accuracy_op],
@@ -329,27 +326,11 @@ class DenseTransformerNetwork(object):
                         + h_predictions[i]*(i*1.0/s_overlap)
                 s_predictions = s_predictions+h_predictions[s_overlap:]
                 s_labels = tf.concat([s_labels,h_labels[:,s_overlap:,:,:]],axis = 1)
-        # process label and data 
         s_predictions = tf.stack(s_predictions, axis=1)
         s_labels = tf.cast(s_labels,'uint8')
-        # process data
-        decoded_predictions = tf.argmax(
-            s_predictions, self.channel_axis, name='accuracy/decode_pred')
-        correct_prediction = tf.equal(
-            one_hot_annotations, decoded_predictions,
-            name='accuracy/predict_correct_pred')
-        # process label
-        expand_annotations = tf.expand_dims(
-            s_labels, -1, name='s_labels/expand_dims')
-        one_hot_annotations = tf.squeeze(
-            expand_annotations, axis=[self.channel_axis],
-            name='s_labels/squeeze')
-        one_hot_annotations = tf.one_hot(
-            one_hot_annotations, depth=self.conf.class_num,
-            axis=self.channel_axis, name='s_labels/one_hot') 
-        return  s_predictions, one_hot_annotations    
+        return  s_predictions, s_labels    
 
-    def predict(self):
+    def predict(self,data_index,sub_batch_index):
         print('---->predicting ', self.conf.test_step)
         if self.conf.test_step > 0:
             self.reload(self.conf.test_step)
@@ -358,27 +339,42 @@ class DenseTransformerNetwork(object):
             return	
         test_reader = H53DDataLoader(
             self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)			
-        predict_generator = test_reader.generate_data(self.conf.index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
-        correct_prediction,one_hot_annotations = self.predict_func(predict_generator)
+        predict_generator = test_reader.generate_data(data_index,sub_batch_index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
+        s_predictions,s_labels = self.predict_func(predict_generator)
+        # process label and data 
+        # process label
+        expand_annotations = tf.expand_dims(
+            s_labels, -1, name='s_labels/expand_dims')
+        one_hot_annotations = tf.squeeze(
+            expand_annotations, axis=[self.channel_axis],
+            name='s_labels/squeeze')
+        one_hot_annotations = tf.one_hot(
+            one_hot_annotations, depth=self.conf.class_num,
+            axis=self.channel_axis, name='s_labels/one_hot')
+        # process data
+        decoded_predictions = tf.argmax(
+            s_predictions, self.channel_axis, name='accuracy/decode_pred')
+        correct_prediction = tf.equal(
+            tf.cast(s_labels,tf.int64), decoded_predictions,
+            name='accuracy/predict_correct_pred')
         #accuracy
         accuracy_op = tf.reduce_mean(
             tf.cast(correct_prediction, tf.float32, name='accuracy/cast'),
             name='accuracy/accuracy_op')
-        print("======== prediction accuracy_op ========", self.sess.run(accuracy_op))
         #loss
         loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(one_hot_annotations, s_predictions))
-        print("=============== prediction loss ============",self.sess.run(loss))
+        return accuracy_op,loss
         # save data
-        sess = tf.Session()
-        with sess.as_default():
-            predict_result = s_predictions.eval()[0,:,:,:,:]
-            ground_truth   = one_hot_annotations.eval()[0,:,:,:,:]
-        print("start save ----->")
-        result = h5py.File('./samples/prediction_result'+str(self.conf.index)+'.h5','w')
-        result.create_dataset('prediction',data = predict_result)
-        result.create_dataset('label',data = ground_truth)
-        result.close()
-        print("finish save ------>")
+        #sess = tf.Session()
+        #with sess.as_default():
+        #    predict_result = s_predictions.eval()[0,:,:,:,:]
+        #    ground_truth   = one_hot_annotations.eval()[0,:,:,:,:]
+        #print("start save ----->")
+        #result = h5py.File('./samples/prediction_result'+str(self.conf.index)+'.h5','w')
+        #result.create_dataset('prediction',data = predict_result)
+        #result.create_dataset('label',data = ground_truth)
+        #result.close()
+        #print("finish save ------>")
 
     def save(self, step):
         print('---->saving', step)
