@@ -313,15 +313,22 @@ class DenseTransformerNetwork(object):
         s_labels = tf.cast(s_labels,'uint8')
         return  s_predictions, s_labels    
 
-    def predict(self,test_step,data_index,sub_batch_index):
+    def predict(self,test_step,data_index,sub_batch_index, test_type):
         print('---->predicting ', test_step)
         if self.conf.test_step > 0:
             self.reload(self.conf.test_step)
         else:
             print("please set a reasonable test_step")
             return  
-        test_reader = H53DDataLoader(
-            self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)           
+        if test_type == 'valid':
+            test_reader = H53DDataLoader(
+                self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)           
+        elif test_type == 'predict':
+            test_reader = H53DDataLoader(
+                self.conf.data_dir+self.conf.test_data, self.input_shape,is_train=False)                       
+        else:
+            print("invalid type")
+            return
         predict_generator = test_reader.generate_data(data_index,sub_batch_index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
         s_predictions,s_labels = self.predict_func(predict_generator)
         # process label and data 

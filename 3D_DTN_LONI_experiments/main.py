@@ -15,7 +15,7 @@ def configure():
     flags.DEFINE_string('data_dir', '/tempspace/ychen7/Research3/augment_data/', 'Name of data directory')
     flags.DEFINE_string('train_data', 'LONI_train/train.txt', 'Training data')
     flags.DEFINE_string('valid_data', 'LONI_valid/valid.txt', 'Validation data')
-    flags.DEFINE_string('test_data', 'testing3d.h5', 'Testing data')
+    flags.DEFINE_string('test_data', 'LONI_test/test.txt', 'Testing data')
     flags.DEFINE_string('data_type', '3D', '2D data or 3D data')
     # training
     flags.DEFINE_integer('max_step', 500000, '# of step for training')
@@ -84,7 +84,7 @@ def valid(model,datasize,batchsize):
             for sub_batch_index in range(0,batchsize):
                 print("predict epoch:",epoch,"dataset index:",data_index,\
                       "sub_batch_index",sub_batch_index)
-                accuracy,loss = model.predict(epoch, data_index,sub_batch_index)
+                accuracy,loss = model.predict(epoch, data_index,sub_batch_index,'valid')
                 average_accuracy.append(accuracy)
                 average_loss.append(loss)
                 print("accuracy",average_accuracy)
@@ -104,7 +104,7 @@ def predict(model,datasize,batchsize):
     for data_index in range(0,datasize):
         for sub_batch_index in range(0,batchsize):
             print("predict dataset index:",data_index,"sub_batch_index",sub_batch_index)
-            accuracy,loss = model.predict(configure().test_step, data_index,sub_batch_index)
+            accuracy,loss = model.predict(configure().test_step, data_index,sub_batch_index,'predict')
             average_accuracy.append(accuracy)
             average_loss.append(loss)
             print("accuracy",average_accuracy)
@@ -119,17 +119,15 @@ def main(_):
     parser.add_argument('--action', dest='action', type=str, default='train',
                         help='actions: train, test, or predict')
     args = parser.parse_args()
+    model = DenseTransformerNetwork(tf.Session(), configure())
     if args.action not in ['train', 'test', 'predict']:
         print('invalid action: ', args.action)
         print("Please input a action: train, test, or predict")
     elif args.action == 'test':
-        model = DenseTransformerNetwork(tf.Session(), configure())
         valid(model,16,10)
     elif args.action == 'predict':
-        model = DenseTransformerNetwork(tf.Session(), configure())
         predict(model,16,10)
     else:
-        model = DenseTransformerNetwork(tf.Session(), configure())
         getattr(model, args.action)()
 
 
