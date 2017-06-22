@@ -5,7 +5,7 @@
 # Implement 3D version of Dense Transformer Layer
 import tensorflow as tf
 import numpy as np
-from ops import *
+from utils.ops import *
 sess = tf.Session()
 Debug = False
 class DSN_Transformer_3D(object):
