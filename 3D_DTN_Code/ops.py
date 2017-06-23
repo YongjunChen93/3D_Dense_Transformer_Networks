@@ -1,118 +1,107 @@
 import tensorflow as tf
 import numpy as np
+from . import pixel_dcn
 
 
-def conv2d(inputs, num_outputs, kernel_size, scope, norm=True,
-           d_format='NHWC'):
-    outputs = tf.contrib.layers.conv2d(
-        inputs, num_outputs, kernel_size, scope=scope,
-        data_format=d_format, activation_fn=None, biases_initializer=None)
-    if norm:
-        outputs = tf.contrib.layers.batch_norm(
-            outputs, decay=0.9, center=True, activation_fn=tf.nn.relu,
-            updates_collections=None, epsilon=1e-5, scope=scope+'/batch_norm',
-            data_format=d_format)
+"""
+This module provides some short functions to reduce code volume
+"""
+
+
+def pixel_dcl(inputs, out_num, kernel_size, scope, data_type='2D'):
+    if data_type == '2D':
+        outputs = pixel_dcn.pixel_dcl(inputs, out_num, kernel_size, scope, None)
     else:
-        outputs = tf.nn.relu(outputs, name=scope+'/relu')
-    return outputs
-
-
-def co_conv2d(inputs, out_num, kernel_size, scope, norm=True,
-              d_format='NHWC'):
-    conv1 = tf.contrib.layers.conv2d(
-        inputs, out_num, kernel_size, stride=2, scope=scope+'/conv0',
-        data_format=d_format, activation_fn=None, biases_initializer=None)
-    outputs = dilated_conv(conv1, out_num, kernel_size, scope)
-    return outputs
-
-
-def deconv(inputs, out_num, kernel_size, scope, d_format='NHWC'):
-    outputs = tf.contrib.layers.conv2d_transpose(
-        inputs, out_num, kernel_size, scope=scope, stride=[2, 2],
-        data_format=d_format, activation_fn=None, biases_initializer=None)
+        outputs = pixel_dcn.pixel_dcl3d(inputs, out_num, kernel_size, scope, None)
     return tf.contrib.layers.batch_norm(
-        outputs, decay=0.9, activation_fn=tf.nn.relu, updates_collections=None,
-        epsilon=1e-5, scope=scope+'/batch_norm', data_format=d_format)
+        outputs, decay=0.9, epsilon=1e-5, activation_fn=tf.nn.relu,
+        updates_collections=None, scope=scope+'/batch_norm')
 
 
-def co_dilated_conv(inputs, out_num, kernel_size, scope, d_format='NHWC'):
-    axis = (d_format.index('H'), d_format.index('W'))
-    channel_axis = d_format.index('C')
-    conv1 = conv2d(inputs, out_num, kernel_size, scope+'/conv1', False)
-    conv1_concat = tf.concat(
-        [inputs, conv1], channel_axis, name=scope+'/concat1')
-    conv2 = conv2d(conv1_concat, out_num, kernel_size, scope+'/conv2', False)
-    conv2_concat = tf.concat(
-        [conv1_concat, conv2], channel_axis, name=scope+'/concat2')
-    conv3 = conv2d(conv2_concat, 2*out_num, kernel_size, scope+'/conv3', False)
-    conv4, conv5 = tf.split(conv3, 2, channel_axis, name=scope+'/split')
-    dialte1 = dilate_tensor(conv1, axis, 0, 0, scope+'/dialte1')
-    dialte2 = dilate_tensor(conv2, axis, 1, 1, scope+'/dialte2')
-    dialte3 = dilate_tensor(conv4, axis, 1, 0, scope+'/dialte3')
-    dialte4 = dilate_tensor(conv5, axis, 0, 1, scope+'/dialte4')
-    outputs = tf.add_n([dialte1, dialte2, dialte3, dialte4], scope+'/add')
+def ipixel_cl(inputs, out_num, kernel_size, scope, data_type='2D'):
+    # only support 2d
+    outputs = pixel_dcn.ipixel_cl(inputs, out_num, kernel_size, scope, None)
     return tf.contrib.layers.batch_norm(
-        outputs, decay=0.9, activation_fn=tf.nn.relu, updates_collections=None,
-        epsilon=1e-5, scope=scope+'/batch_norm', data_format=d_format)
+        outputs, decay=0.9, epsilon=1e-5, activation_fn=tf.nn.relu,
+        updates_collections=None, scope=scope+'/batch_norm')
 
 
-def dilated_conv(inputs, out_num, kernel_size, scope, d_format='NHWC'):
-    axis = (d_format.index('H'), d_format.index('W'))
-    conv1 = conv2d(inputs, out_num, kernel_size, scope+'/conv1', False)
-    dilated_inputs = dilate_tensor(inputs, axis, 0, 0, scope+'/dialte_inputs')
-    dilated_conv1 = dilate_tensor(conv1, axis, 1, 1, scope+'/dialte_conv1')
-    conv1 = tf.add(dilated_inputs, dilated_conv1, scope+'/add1')
-    with tf.variable_scope(scope+'/conv2'):
-        shape = list(kernel_size) + [out_num, out_num]
+def ipixel_dcl(inputs, out_num, kernel_size, scope, data_type='2D'):
+    # only support 2d
+    outputs = pixel_dcn.ipixel_dcl(inputs, out_num, kernel_size, scope, None)
+    return tf.contrib.layers.batch_norm(
+        outputs, decay=0.9, epsilon=1e-5, activation_fn=tf.nn.relu,
+        updates_collections=None, scope=scope+'/batch_norm')
+
+
+def conv(inputs, out_num, kernel_size, scope, data_type='2D'):
+    if data_type == '2D':
+        outputs = tf.layers.conv2d(
+            inputs, out_num, kernel_size, padding='same', name=scope+'/conv',
+            kernel_initializer=tf.truncated_normal_initializer)
+    else:
+        shape = list(kernel_size) + [inputs.shape[-1].value, out_num]
         weights = tf.get_variable(
-            'weights', shape, initializer=tf.truncated_normal_initializer())
-        weights = tf.multiply(weights, get_mask(shape, scope))
-        strides = [1, 1, 1, 1]
-        conv2 = tf.nn.conv2d(conv1, weights, strides, padding='SAME',
-                             data_format=d_format)
-    outputs = tf.add(conv1, conv2, name=scope+'/add2')
+            scope+'/conv/weights', shape, initializer=tf.truncated_normal_initializer())
+        outputs = tf.nn.conv3d(
+            inputs, weights, (1, 1, 1, 1, 1), padding='SAME', name=scope+'/conv')
     return tf.contrib.layers.batch_norm(
-        outputs, decay=0.9, activation_fn=tf.nn.relu, updates_collections=None,
-        epsilon=1e-5, scope=scope+'/batch_norm', data_format=d_format)
+        outputs, decay=0.9, epsilon=1e-5, activation_fn=tf.nn.relu,
+        updates_collections=None, scope=scope+'/batch_norm')
 
 
-def get_mask(shape, scope):
-    new_shape = (shape[0]*shape[1], shape[2], shape[3])
-    mask = np.ones(new_shape, dtype=np.float32)
-    for i in range(0, new_shape[0], 2):
-        mask[i, :, :] = 0
-    mask = np.reshape(mask, shape, 'F')
-    return tf.constant(mask, dtype=tf.float32, name=scope+'/mask')
+def deconv(inputs, out_num, kernel_size, scope, data_type='2D'):
+    if data_type == '2D':
+        outputs = tf.layers.conv2d_transpose(
+            inputs, out_num, kernel_size, (2, 2), padding='same', name=scope,
+            kernel_initializer=tf.truncated_normal_initializer)
+    else:
+        shape = list(kernel_size) + [out_num, out_num]
+        input_shape = inputs.shape.as_list()
+        out_shape = [input_shape[0]] + \
+            list(map(lambda x: x*2, input_shape[1:-1])) + [out_num]
+        weights = tf.get_variable(
+            scope+'/deconv/weights', shape, initializer=tf.truncated_normal_initializer())
+        outputs = tf.nn.conv3d_transpose(
+            inputs, weights, out_shape, (1, 2, 2, 2, 1), name=scope+'/deconv')
+    return tf.contrib.layers.batch_norm(
+        outputs, decay=0.9, epsilon=1e-5, activation_fn=tf.nn.relu,
+        updates_collections=None, scope=scope+'/batch_norm')
 
+def pool(inputs, kernel_size, scope, data_type='2D'):
+    if data_type == '2D':
+        return tf.layers.max_pooling2d(inputs, kernel_size, (2, 2), name=scope)
+    return tf.layers.max_pooling3d(inputs, kernel_size, (2, 2, 2), name=scope)
 
-def dilate_tensor(inputs, axis, row_shift, column_shift, scope):
-    rows = tf.unstack(inputs, axis=axis[0], name=scope+'/rowsunstack')
-    row_zeros = tf.zeros(
-        rows[0].shape, dtype=tf.float32, name=scope+'/rowzeros')
-    for index in range(len(rows), 0, -1):
-        rows.insert(index-row_shift, row_zeros)
-    row_outputs = tf.stack(rows, axis=axis[0], name=scope+'/rowsstack')
-    columns = tf.unstack(
-        row_outputs, axis=axis[1], name=scope+'/columnsunstack')
-    columns_zeros = tf.zeros(
-        columns[0].shape, dtype=tf.float32, name=scope+'/columnzeros')
-    for index in range(len(columns), 0, -1):
-        columns.insert(index-column_shift, columns_zeros)
-    column_outputs = tf.stack(
-        columns, axis=axis[1], name=scope+'/columnsstack')
-    return column_outputs
-
-
-def pool2d(inputs, kernel_size, scope, data_format='NHWC'):
-    return tf.contrib.layers.max_pool2d(
-        inputs, kernel_size, scope=scope, padding='SAME',
-        data_format=data_format)
 
 def weight_variable(shape):
-    initial = tf.zeros(shape)
+    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     return tf.Variable(initial)
 
 def bias_variable(shape):
-    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
+    initial = tf.zeros(shape)
     return tf.Variable(initial)
+    
+def dice_accuracy(decoded_predictions, annotations, class_nums):
+    DiceRatio = tf.constant(0,tf.float32)
+    misclassnum = tf.constant(0,tf.float32)
+    class_num   = tf.constant(class_nums,tf.float32) 
+    sublist   =  []
+    for index in range(1,class_nums-2):
+        current_annotation   =     tf.cast(tf.equal(tf.ones_like(annotations)*index,\
+                                        annotations),tf.float32)
+        cureent_prediction   =     tf.cast(tf.equal(tf.ones_like(decoded_predictions)*index,\
+                                            decoded_predictions),tf.float32)
+        Overlap              =     tf.add(current_annotation,cureent_prediction)
+        Common               =     tf.reduce_sum(tf.cast(tf.equal(tf.ones_like(Overlap)*2,Overlap),\
+                                                            tf.float32),[0,1,2,3])
+        annotation_num       =     tf.reduce_sum(current_annotation,[0,1,2,3])
+        predict_num          =     tf.reduce_sum(cureent_prediction,[0,1,2,3])
+        all_num              =     tf.add(annotation_num,predict_num)
+        Sub_DiceRatio        =     Common*2/tf.clip_by_value(all_num, 1e-10, 1e+10)
+        misclassnum          =     tf.cond(tf.equal(Sub_DiceRatio,0.0), lambda: misclassnum + 1, lambda: misclassnum)
+        sublist.append(Sub_DiceRatio)
+        DiceRatio            =     DiceRatio + Sub_DiceRatio
+    DiceRatio                =     DiceRatio/tf.clip_by_value(tf.cast((class_num-misclassnum-3),tf.float32),1e-10,1e+1000)
+    return DiceRatio, sublist
 
