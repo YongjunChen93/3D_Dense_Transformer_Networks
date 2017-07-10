@@ -35,9 +35,9 @@ Here is the example how to add it:
     import numpy as np
     import tensorflow as tf
 
-    # sample inputs (Shape: NDHWC)
-    U=tf.linspace(1.0,10.0,2*8*8*8*2)
-    U =tf.reshape(U,[2,8,8,8,2])
+    #A sample inputs (Shape: Num*Depth*Height*Weight*Channel)
+    dtn_input=tf.reshape(tf.linspace(1.0,10.0,2*8*8*8*2),[2,8,8,8,2])
+    local_net_input = dtn_input
 
     # parameters setup in network initial
     dtn_input_shape = [2,8,8,8,2]
@@ -47,10 +47,10 @@ Here is the example how to add it:
     transform = DSN_Transformer_3D(dtn_input_shape,control_points_ratio)
 
     # encoder layer
-    conv1= transform.Encoder(U,U)
+    encoder_output= transform.Encoder(dtn_input,local_net_input)
 
     # decoder layer
-    conv2 = transform.Decoder(conv1,conv1)
+    decoder_output = transform.Decoder(encoder_output,encoder_output)
 
 ```
 ## Add 3D Dense Transformer Networks to a standard U-NET for semantic segmentation

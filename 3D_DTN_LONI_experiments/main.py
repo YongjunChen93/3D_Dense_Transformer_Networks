@@ -53,6 +53,8 @@ def configure():
     flags.DEFINE_integer('class_num', 57, 'output class number')
     flags.DEFINE_integer('start_channel_num', 32,
                          'start number of outputs for the first conv layer')
+    # This part include another work. if you don't need it, just use the default set up.
+    # if want to use it, please visit this code:https://github.com/divelab/PixelDCN
     flags.DEFINE_string(
         'conv_name', 'conv',
         'Use which conv op in decoder: conv or ipixel_cl')

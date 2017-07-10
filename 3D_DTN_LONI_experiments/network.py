@@ -12,8 +12,8 @@ This module build a standard U-NET for semantic segmentation.
 If want Dense Transformer Network, please read the code here:
 https://github.com/JohnYC1995/3D_Dense_Transformer_Networks
 
-If want VAE using pixelDCL, please visit this code:
-https://github.com/HongyangGao/UVAE
+This network also include the other works: pixelDCL, if you want to use it,
+please visit this code here: https://github.com/HongyangGao/UVAE
 """
 class DenseTransformerNetwork(object):
     def __init__(self, sess, conf):
@@ -383,5 +383,5 @@ class DenseTransformerNetwork(object):
         self.saver.restore(self.sess, model_path)
 
 if __name__ == '__main__':
-    a = [1,3,4]
+    pass
 
