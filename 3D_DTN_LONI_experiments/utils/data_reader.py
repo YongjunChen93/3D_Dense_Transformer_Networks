@@ -72,7 +72,8 @@ class H53DDataLoader(object):
         for line in open(data_path):
             name = line.split('\n',1)
             self.dataset_name.append(name[0])
-        self.index = 0
+        print("data list--------->",self.dataset_name)
+	self.index = 0
         self.sub_batch_index = 0
     def next_batch(self, batch_size,gap=None):
         data_path = self.dataset_name[self.index]
@@ -112,7 +113,8 @@ class H53DDataLoader(object):
         data_path = self.dataset_name[self.index]
         data_file = h5py.File(data_path, 'r')
         print("data_path----->",data_path)
-        self.data_all, self.label_all = data_file['data'][self.sub_batch_index,:,:,:], data_file['label'][self.sub_batch_index,:,:,:]
+        print("self.sub_batch_index",sub_batch_index)
+	self.data_all, self.label_all = data_file['data'][sub_batch_index,:,:,:], data_file['label'][sub_batch_index,:,:,:]
         self.batch_size =batch_size
         self.patch_shape = patch_shape
         image_batches = []
@@ -151,7 +153,6 @@ class H53DDataLoader(object):
                     images = np.expand_dims(np.expand_dims(np.stack(X, axis=0), axis=-1),axis=0)
                     labels = np.expand_dims(np.stack(Y, axis=0),axis=0)
                     yield images,labels
-
 
 class QueueDataReader(object):
 

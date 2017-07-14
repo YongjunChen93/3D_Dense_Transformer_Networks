@@ -39,7 +39,7 @@ def configure():
     flags.DEFINE_integer('data_height',142,'predict data_height')
     flags.DEFINE_integer('data_width',149,'predict data_width')
     flags.DEFINE_integer('predict_batch',181,'predict batch')
-    flags.DEFINE_integer('test_step', 84000, 'Test or predict model at this step')
+    flags.DEFINE_integer('test_step', 111000, 'Test or predict model at this step')
     # Debug
     flags.DEFINE_string('logdir', './logdir', 'Log dir')
     flags.DEFINE_string('modeldir', './modeldir', 'Model dir')
@@ -49,12 +49,10 @@ def configure():
     flags.DEFINE_integer('reload_step', 0, 'Reload step to continue training')
     flags.DEFINE_integer('random_seed', int(time.time()), 'random seed')
     # network architecture
-    flags.DEFINE_integer('network_depth', 5, 'network depth for U-Net')
+    flags.DEFINE_integer('network_depth', 6, 'network depth for U-Net')
     flags.DEFINE_integer('class_num', 57, 'output class number')
     flags.DEFINE_integer('start_channel_num', 32,
                          'start number of outputs for the first conv layer')
-    # This part include another work. if you don't need it, just use the default set up.
-    # if want to use it, please visit this code:https://github.com/divelab/PixelDCN
     flags.DEFINE_string(
         'conv_name', 'conv',
         'Use which conv op in decoder: conv or ipixel_cl')
@@ -62,7 +60,7 @@ def configure():
         'deconv_name', 'deconv',
         'Use which deconv op in decoder: deconv, pixel_dcl, ipixel_dcl')
     # Dense Transformer Networks
-    flags.DEFINE_boolean('add_dtn', True,
+    flags.DEFINE_boolean('add_dtn', False,
         'add Dense Transformer Networks or not')
     flags.DEFINE_integer('dtn_location', 3,'The Dense Transformer Networks location')
     flags.DEFINE_string('control_points_ratio', 2,
@@ -72,8 +70,20 @@ def configure():
     return flags.FLAGS
 
 def average_list(inputlist):
-    sum_num = reduce(add,inputlist)
-    return sum_num/len(inputlist)
+    if len(inputlist) <= 1:
+        return inputlist
+    else:
+        sum_num = reduce(add,inputlist)
+        return sum_num/len(inputlist)
+
+def sumlist_element(list1,list2):
+    result = [(x+y) for x, y in zip(list1, list2)]
+    return result
+
+def list_average_element(inputlist,slices):
+    divider = [slices]*len(inputlist)
+    result = [x/y for x,y in zip(inputlist,divider)]
+    return result
 
 def valid(model,datasize,batchsize):
     conf =  configure()
@@ -100,40 +110,47 @@ def valid(model,datasize,batchsize):
     print("accuracy on each epoch----->", epoch_accuracys)
     print("loss on each epoch------>", epoch_loss)
 
-def predict(model,datasize,batchsize):
+def predict(model,datasize,batchsize,types):
     average_accuracy = []
     average_loss     = []
-    for data_index in range(0,datasize):
-        for sub_batch_index in range(0,batchsize):
-            print("predict dataset index:",data_index,"sub_batch_index",sub_batch_index)
-            accuracy,loss = model.predict(configure().test_step, data_index,sub_batch_index,'predict')
-            average_accuracy.append(accuracy)
+    average_dice_ratio = []
+    average_sublist_DR = [0]*57
+    for data_index in range(datasize-1,datasize):
+        for sub_batch_index in range(batchsize-1,batchsize):
+            print("predict dataset index:",data_index,"sub_batch_index",sub_batch_index)	    
+	    if types == 'predict':
+	        accuracy,loss, dice_ratio, sublist = model.predict(None, data_index,sub_batch_index,'predict')
+	    elif types == 'valid':
+	        accuracy,loss,dice_ratio,sublist = model.predict(conf.test_step, data_index,sub_batch_index,'valid')
+	    average_accuracy.append(accuracy)
             average_loss.append(loss)
+	    average_dice_ratio.append(dice_ratio)
             print("accuracy",average_accuracy)
             print("loss",average_loss)
-    average_accuracy = average_list(average_list)
-    average_loss = average_list(average_loss)
-    print("average_accuracy----->",average_accuracy)
-    print("average_loss------>",average_loss)
+	    print("dice ratio",average_dice_ratio)
+	    print("sublist",sublist)
 
-def main(_):
+def main(index):
     parser = argparse.ArgumentParser()
     parser.add_argument('--action', dest='action', type=str, default='train',
                         help='actions: train, test, or predict')
     args = parser.parse_args()
-    model = DenseTransformerNetwork(tf.Session(), configure())
+    sess = tf.Session()
+    conf = configure()
+    model = DenseTransformerNetwork(sess,conf,'predict')
     if args.action not in ['train', 'test', 'predict']:
         print('invalid action: ', args.action)
         print("Please input a action: train, test, or predict")
     elif args.action == 'test':
-        valid(model,16,10)
+	predict(1,20,'valid')
     elif args.action == 'predict':
-        predict(model,16,10)
+	predict(model,10,index,'predict')
     else:
         getattr(model, args.action)()
 
-
 if __name__ == '__main__':
     # configure which gpu or cpu to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '3'
-    tf.app.run()
+    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
+    index = 1
+    main(index)
+    #tf.app.run()

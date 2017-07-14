@@ -7,28 +7,33 @@ from utils import ops
 from Dense_Transformer_Network import *
 from Dense_Transformer_Networks_3D import *
 import h5py
+import gc
 """
 This module build a standard U-NET for semantic segmentation.
 If want Dense Transformer Network, please read the code here:
 https://github.com/JohnYC1995/3D_Dense_Transformer_Networks
 
-This network also include the other works: pixelDCL, if you want to use it,
-please visit this code here: https://github.com/HongyangGao/UVAE
+If want VAE using pixelDCL, please visit this code:
+https://github.com/HongyangGao/UVAE
 """
 class DenseTransformerNetwork(object):
-    def __init__(self, sess, conf):
-        self.sess = sess
-        self.conf = conf
+    def __init__(self, sess, conf, types='train'):
+	self.sess = sess
+	print("start conf")
+	self.conf = conf
+	print("finish conf")
         self.def_params()
         if not os.path.exists(conf.modeldir):
             os.makedirs(conf.modeldir)
         if not os.path.exists(conf.logdir):
-            os.makedirs(conf.logdir)
+	    os.makedirs(conf.logdir)
         if not os.path.exists(conf.sampledir):
             os.makedirs(conf.sampledir)
-        self.configure_networks()
+	self.configure_networks()
         self.train_summary = self.config_summary('train')
         self.valid_summary = self.config_summary('valid')
+        if types == 'predict' and self.conf.test_step > 0:
+            self.reload(self.conf.test_step)
 
     def def_params(self):
         self.data_format = 'NHWC'
@@ -77,16 +82,16 @@ class DenseTransformerNetwork(object):
         self.train_op = optimizer.minimize(self.loss_op, name='train_op')
         tf.set_random_seed(self.conf.random_seed)
         self.sess.run(tf.global_variables_initializer())
-        trainable_vars = tf.trainable_variables()
+	trainable_vars = tf.trainable_variables()
         self.saver = tf.train.Saver(var_list=trainable_vars, max_to_keep=0)
         self.writer = tf.summary.FileWriter(self.conf.logdir, self.sess.graph)
 
     def build_network(self):
-        self.inputs = tf.placeholder(
+	self.inputs = tf.placeholder(
             tf.float32, self.input_shape, name='inputs')
         self.annotations = tf.placeholder(
             tf.int64, self.output_shape, name='annotations')
-        self.predictions = self.inference(self.inputs)
+	self.predictions = self.inference(self.inputs)
         self.cal_loss()
 
     def cal_loss(self):
@@ -115,11 +120,9 @@ class DenseTransformerNetwork(object):
     def config_summary(self, name):
         summarys = []
         summarys.append(tf.summary.scalar(name+'/loss', self.loss_op))
-        summarys.append(tf.summary.scalar(name+'/dice_accuracy', self.dice_accuracy_op))
         summarys.append(tf.summary.scalar(name+'/accuracy', self.accuracy_op))
-        for i in range(1,self.conf.class_num-2):
-            summarys.append(tf.summary.scalar(name+'/class'+str(i)+'dice_accuracy', self.sub_dice_list[i-1]))        
-        if name == 'valid' and self.conf.data_type=='2D':
+        summarys.append(tf.summary.scalar(name+'/dice_ratio', self.dice_accuracy_op))
+	if name == 'valid' and self.conf.data_type=='2D':
             summarys.append(
                 tf.summary.image(name+'/input', self.inputs, max_outputs=100))
             summarys.append(
@@ -225,12 +228,11 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = valid_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, summary, accuracy, dice_accuracy = self.sess.run(
-                    [self.loss_op, self.valid_summary,self.accuracy_op,self.dice_accuracy_op], feed_dict=feed_dict)
+                loss, summary, accuracy = self.sess.run(
+                    [self.loss_op, self.valid_summary,self.accuracy_op], feed_dict=feed_dict)
                 self.save_summary(summary, epoch_num+self.conf.reload_step)
                 print('----valid loss', loss)
                 print('----valid accuracy', accuracy)
-                print('----valid dice accuracy', dice_accuracy)
             elif epoch_num % self.conf.summary_interval == 0:
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
@@ -243,12 +245,11 @@ class DenseTransformerNetwork(object):
                 inputs, annotations = train_reader.next_batch(self.conf.batch)
                 feed_dict = {self.inputs: inputs,
                              self.annotations: annotations}
-                loss, summary, _, accuracy, dice_accuracy= self.sess.run(
-                    [self.loss_op, self.train_summary, self.train_op, self.accuracy_op, \
-                    self.dice_accuracy_op], feed_dict=feed_dict)
+                loss, summary, _, accuracy = self.sess.run(
+                    [self.loss_op, self.train_summary, self.train_op, self.accuracy_op
+                    ], feed_dict=feed_dict)
                 print('----train loss', loss)
                 print('----train accuracy', accuracy)
-                print('----train dice accuracy', dice_accuracy)
                 self.save_summary(summary, epoch_num+self.conf.reload_step)
             if epoch_num % self.conf.save_interval == 0:
                 self.save(epoch_num+self.conf.reload_step)
@@ -274,7 +275,7 @@ class DenseTransformerNetwork(object):
                     prediction, loss, accuracy = self.sess.run(
                         [self.predictions, self.loss_op, self.accuracy_op],
                         feed_dict=feed_dict)
-                    prediction = tf.unstack(prediction, axis=3)
+		    prediction = tf.unstack(prediction, axis=3)
                     if w_start == 0:
                         w_predictions = w_predictions + prediction
                         w_labels = annotations
@@ -314,24 +315,22 @@ class DenseTransformerNetwork(object):
         return  s_predictions, s_labels    
 
     def predict(self,test_step,data_index,sub_batch_index, test_type):
-        print('---->predicting ', test_step)
-        if self.conf.test_step > 0:
-            self.reload(self.conf.test_step)
-        else:
-            print("please set a reasonable test_step")
-            return  
+	print('---->predicting ', self.conf.test_step)
         if test_type == 'valid':
             test_reader = H53DDataLoader(
                 self.conf.data_dir+self.conf.valid_data, self.input_shape,is_train=False)           
         elif test_type == 'predict':
-            test_reader = H53DDataLoader(
-                self.conf.data_dir+self.conf.test_data, self.input_shape,is_train=False)                       
+	    print("start get predict data")
+	    test_reader = H53DDataLoader(
+                self.conf.data_dir+self.conf.test_data, self.input_shape,is_train=False)   
+	    print("finish get data")
         else:
             print("invalid type")
             return
         predict_generator = test_reader.generate_data(data_index,sub_batch_index,[self.conf.depth,self.conf.height,self.conf.width],[self.conf.d_gap,self.conf.w_gap,self.conf.h_gap])
         s_predictions,s_labels = self.predict_func(predict_generator)
-        # process label and data 
+	print("finish concate ---------+++++")
+	# process label and data 
         # process label
         expand_annotations = tf.expand_dims(
             s_labels, -1, name='s_labels/expand_dims')
@@ -353,18 +352,13 @@ class DenseTransformerNetwork(object):
             name='accuracy/accuracy_op')
         #loss
         loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(one_hot_annotations, s_predictions))
-        return accuracy_op,loss
-        # save data
-        #sess = tf.Session()
-        #with sess.as_default():
-        #    predict_result = s_predictions.eval()[0,:,:,:,:]
-        #    ground_truth   = one_hot_annotations.eval()[0,:,:,:,:]
-        #print("start save ----->")
-        #result = h5py.File('./samples/prediction_result'+str(self.conf.index)+'.h5','w')
-        #result.create_dataset('prediction',data = predict_result)
-        #result.create_dataset('label',data = ground_truth)
-        #result.close()
-        #print("finish save ------>")
+        #dice ratio
+	DiceRatio, sublist = ops.dice_accuracy(decoded_predictions, s_labels, self.conf.class_num)
+	print("session image labels-------vvvvvvv")
+	accuracy, Loss, diceRatio, Sublist = self.sess.run([accuracy_op, loss,DiceRatio,sublist])
+	del DiceRatio, sublist
+	gc.collect()
+	return accuracy, Loss, diceRatio, Sublist
 
     def save(self, step):
         print('---->saving', step)
@@ -373,7 +367,7 @@ class DenseTransformerNetwork(object):
         self.saver.save(self.sess, checkpoint_path, global_step=step)
 
     def reload(self, step):
-        print("reload:",self.conf.reload_step)
+        print("reload:",step)
         checkpoint_path = os.path.join(
             self.conf.modeldir, self.conf.model_name)
         model_path = checkpoint_path+'-'+str(step)
@@ -383,5 +377,5 @@ class DenseTransformerNetwork(object):
         self.saver.restore(self.sess, model_path)
 
 if __name__ == '__main__':
-    pass
+    a = [1,3,4]
 
