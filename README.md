@@ -183,7 +183,9 @@ tensorboard --logdir=logdir/
 
 The segmentation results including training and validation accuracies,loss and Dice rate of each classes and the prediction outputs are all available in tensorboard.
 
+#### Start Testing
 
+Since this experiment is on 3D dataset. So it's too large to do the prediction of all subject at one Graph. So first you need to run ``generate_predict.py`` code to generate predict file for each subject. After setup the subject porpertly. Then you just need to run ``predict.py``. The predict result will automatically be showed on the screen.
 
 
 
